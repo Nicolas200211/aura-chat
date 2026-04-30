@@ -13,6 +13,8 @@ const withPWA = withPWAInit({
 
 export default withPWA({
   reactStrictMode: true,
+  //@ts-ignore
+  turbopack: {},
   webpack: (config) => {
     return config;
   },
