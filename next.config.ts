@@ -14,15 +14,6 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  webpack: (config) => {
-    return config;
-  },
 };
 
-const finalConfig = withPWA(nextConfig);
-
-// Forzamos la propiedad para que Next.js 16 la vea sí o sí
-// @ts-ignore
-finalConfig.turbopack = {};
-
-export default finalConfig;
+export default withPWA(nextConfig);
