@@ -1,0 +1,22 @@
+{
+  "name": "Aura Chat",
+  "short_name": "Aura",
+  "description": "Tu asistente emocional personal",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#B7B1F2",
+  "icons": [
+    {
+      "src": "/image/logo/logo_mente_en_calma.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/image/logo/logo_mente_en_calma.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
