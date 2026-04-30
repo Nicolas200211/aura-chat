@@ -12,8 +12,5 @@ const withPWA = withPWAInit({
 });
 
 export default withPWA({
-  // Configuración para despliegue en cPanel/Servidores Node.js
-  output: "standalone",
-  //@ts-ignore
-  turbopack: {},
+  reactStrictMode: true,
 });
