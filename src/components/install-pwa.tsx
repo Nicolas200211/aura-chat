@@ -9,8 +9,14 @@ export const InstallPWA = () => {
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
   useEffect(() => {
+    if ((window as any).__pwaInstallPrompt) {
+      setDeferredPrompt((window as any).__pwaInstallPrompt);
+      setShowInstallBtn(true);
+    }
+
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
+      (window as any).__pwaInstallPrompt = e;
       setDeferredPrompt(e);
       setShowInstallBtn(true);
     };
