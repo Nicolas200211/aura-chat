@@ -17,8 +17,8 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {
-            // El middleware se encargará de esto si falla en un Server Component
+          } catch (error) {
+            // El proxy se encarga de esto
           }
         },
       },

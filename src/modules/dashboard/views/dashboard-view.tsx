@@ -115,8 +115,8 @@ export const DashboardView = () => {
             </div>
           </div>
           
-          <div className="h-40 w-full min-h-[160px] -ml-4">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-40 w-full min-h-[160px] relative">
+            <ResponsiveContainer width="100%" height="100%" minHeight={160}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">

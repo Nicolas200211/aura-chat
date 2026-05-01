@@ -56,7 +56,7 @@ export const appointments = pgTable('citas', {
 });
 
 export const profiles = pgTable('perfiles', {
-  id: uuid('id').primaryKey().references(() => conversations.userId), // Vinculado al Auth ID
+  id: uuid('id').primaryKey(), // Vinculado al Auth ID
   fullName: text('nombre_completo'),
   avatarUrl: text('avatar_url'),
   updatedAt: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),

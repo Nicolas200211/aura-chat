@@ -79,9 +79,9 @@ export async function saveChatMessage(data: { conversationId: number; role: 'use
 
 export async function getGeminiResponse(userContent: string, history: any[]) {
   const modelsToTry = [
-    "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-flash-latest"
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b"
   ];
 
   let lastError = null;
