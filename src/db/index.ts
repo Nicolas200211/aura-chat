@@ -8,5 +8,5 @@ if (!connectionString) {
   console.warn('DATABASE_URL is missing. Drizzle connection not established.');
 }
 
-const client = postgres(connectionString);
+const client = postgres(connectionString, { prepare: false });
 export const db = drizzle(client, { schema });
