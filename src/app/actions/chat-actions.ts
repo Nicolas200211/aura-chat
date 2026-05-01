@@ -78,13 +78,17 @@ export async function saveChatMessage(data: { conversationId: number; role: 'use
 }
 
 export async function getGeminiResponse(userContent: string, history: any[]) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY no está configurada en las variables de entorno.");
+  }
+
   const modelsToTry = [
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-1.5-flash-8b"
+    "gemini-1.5-flash-8b",
   ];
 
-  let lastError = null;
+  let lastError: any = null;
 
   for (const modelName of modelsToTry) {
     try {
@@ -94,13 +98,11 @@ export async function getGeminiResponse(userContent: string, history: any[]) {
         systemInstruction: "Eres Aura Chat, una asistente inteligente especializada en bienestar emocional y psicología. Tu objetivo es escuchar de forma empática, ofrecer apoyo emocional y sugerir ejercicios de bienestar. Hablas de forma cálida, profesional y cercana en español.",
       });
 
-      // Formatear el historial para Gemini
       const formattedHistory = history.map(m => ({
         role: m.role === "user" ? "user" : "model",
         parts: [{ text: m.content || m.text }],
       }));
 
-      // Asegurar que empiece con 'user'
       const firstUserIndex = formattedHistory.findIndex(h => h.role === "user");
       const safeHistory = firstUserIndex !== -1 ? formattedHistory.slice(firstUserIndex) : [];
 
@@ -109,21 +111,13 @@ export async function getGeminiResponse(userContent: string, history: any[]) {
       return result.response.text();
     } catch (error: any) {
       lastError = error;
-      console.warn(`Modelo ${modelName} falló:`, error.message);
-      
-      // Si no es un error de cuota (429), lanzamos el error de inmediato
-      if (!error.message.includes("429") && !error.message.includes("quota")) {
-        throw error;
-      }
-      
-      // Si es cuota, continuamos con el siguiente modelo del array
+      console.error(`Modelo ${modelName} falló con: [${error.status ?? error.code ?? 'ERR'}] ${error.message}`);
       continue;
     }
   }
 
-  // Si llegamos aquí es que todos los modelos fallaron por cuota
-  console.error("TODOS LOS MODELOS SATURADOS:", lastError);
-  throw new Error(`Aura está muy solicitada en este momento. Por favor, espera unos segundos: ${lastError?.message || "Límite de cuota excedido"}`);
+  console.error("TODOS LOS MODELOS FALLARON. Último error:", lastError);
+  throw new Error(`Error al conectar con Aura AI: ${lastError?.message ?? "Error desconocido"}`);
 }
 
 export async function clearChatHistory(conversationId?: number) {
