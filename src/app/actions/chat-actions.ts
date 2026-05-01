@@ -3,11 +3,11 @@
 import { db } from "@/db";
 import { messages, conversations } from "@/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Groq } from "groq-sdk";
 import { createClient } from "@/lib/supabase-server";
 
-const API_KEY = process.env.GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+const groq = new Groq({ apiKey: GROQ_API_KEY });
 
 export async function getConversations() {
   try {
@@ -78,51 +78,54 @@ export async function saveChatMessage(data: { conversationId: number; role: 'use
 }
 
 export async function getGeminiResponse(userContent: string, history: any[]) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY no está configurada en las variables de entorno.");
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY no está configurada en las variables de entorno.");
   }
 
   const modelsToTry = [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash-exp",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash-8b",
-    "gemini-1.5-flash-8b-latest",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768",
   ];
 
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
     try {
-      console.log(`Intentando con modelo: ${modelName}...`);
-      const model = genAI.getGenerativeModel({
+      console.log(`Intentando con Groq modelo: ${modelName}...`);
+      
+      const messages = [
+        {
+          role: "system",
+          content: "Eres Aura Chat, una asistente inteligente especializada en bienestar emocional y psicología. Tu objetivo es escuchar de forma empática, ofrecer apoyo emocional y sugerir ejercicios de bienestar. Hablas de forma cálida, profesional y cercana en español."
+        },
+        ...history.map(m => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.content || m.text
+        })),
+        {
+          role: "user",
+          content: userContent
+        }
+      ];
+
+      const completion = await groq.chat.completions.create({
+        messages: messages as any,
         model: modelName,
-        systemInstruction: "Eres Aura Chat, una asistente inteligente especializada en bienestar emocional y psicología. Tu objetivo es escuchar de forma empática, ofrecer apoyo emocional y sugerir ejercicios de bienestar. Hablas de forma cálida, profesional y cercana en español.",
       });
 
-      const formattedHistory = history.map(m => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content || m.text }],
-      }));
-
-      const firstUserIndex = formattedHistory.findIndex(h => h.role === "user");
-      const safeHistory = firstUserIndex !== -1 ? formattedHistory.slice(firstUserIndex) : [];
-
-      const chat = model.startChat({ history: safeHistory });
-      const result = await chat.sendMessage(userContent);
-      return result.response.text();
+      return completion.choices[0]?.message?.content || "";
     } catch (error: any) {
       lastError = error;
-      console.error(`Modelo ${modelName} falló con: [${error.status ?? error.code ?? 'ERR'}] ${error.message}`);
+      console.error(`Modelo Groq ${modelName} falló:`, error.message);
       continue;
     }
   }
 
-  console.error("TODOS LOS MODELOS FALLARON. Último error:", lastError);
-  throw new Error(`Error al conectar con Aura AI: ${lastError?.message ?? "Error desconocido"}`);
+  console.error("TODOS LOS MODELOS DE GROQ FALLARON:", lastError);
+  throw new Error(`Aura (Groq) no pudo responder: ${lastError?.message || "Error desconocido"}`);
 }
+
 
 export async function clearChatHistory(conversationId?: number) {
   try {
