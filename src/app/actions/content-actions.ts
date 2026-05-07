@@ -56,7 +56,10 @@ export async function getJournalEntries() {
     return await db.select().from(journalEntries)
       .where(eq(journalEntries.userId, user.id))
       .orderBy(desc(journalEntries.createdAt));
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching journal entries:", error);
     return [];
   }
@@ -111,7 +114,10 @@ export async function getAppointments() {
     .innerJoin(specialists, eq(appointments.specialistId, specialists.id))
     .where(eq(appointments.userId, user.id))
     .orderBy(desc(appointments.createdAt));
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching appointments:", error);
     return [];
   }
@@ -161,7 +167,10 @@ export async function getMyProfile() {
       .where(eq(profiles.id, user.id));
     
     return result[0] || null;
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching profile:", error);
     return null;
   }
@@ -177,7 +186,10 @@ export async function getSpecialistProfile() {
       .where(eq(specialists.userId, user.id));
     
     return result[0] || null;
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching specialist profile:", error);
     return null;
   }
@@ -311,7 +323,10 @@ export async function getDashboardStats() {
       streak,
       totalEntries: entries.length
     };
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching stats:", error);
     return null;
   }
@@ -330,7 +345,10 @@ export async function getProfileStats() {
       badges: badgeCountResult[0].val || 0,
       streak: stats?.streak || 0
     };
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching profile stats:", error);
     return { badges: 0, streak: 0 };
   }
@@ -374,7 +392,10 @@ export async function getSpecialistStats() {
       rating: spec[0].rating || "5.0",
       streak
     };
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching specialist stats:", error);
     return { sessions: 0, rating: "0.0", streak: 0 };
   }
@@ -411,7 +432,10 @@ export async function getPsychologistPatients() {
     const uniquePatients = Array.from(new Map(patients.map(p => [p.id, p])).values());
 
     return uniquePatients;
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching psychologist patients:", error);
     return [];
   }
@@ -444,7 +468,10 @@ export async function getSpecialistAppointments() {
     .innerJoin(profiles, eq(appointments.userId, profiles.id))
     .where(eq(appointments.specialistId, specId))
     .orderBy(desc(appointments.createdAt));
-  } catch (error) {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("Error fetching specialist appointments:", error);
     return [];
   }

@@ -40,38 +40,59 @@ async function seed() {
     console.log('Aviso: No se pudo insertar en auth.users (posible falta de permisos), pero continuaremos con las tablas públicas.');
   }
 
+  // --- IDs DE ESPECIALISTAS ---
+  const specIds = [
+    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222',
+    '33333333-3333-3333-3333-333333333333',
+    '44444444-4444-4444-4444-444444444444'
+  ];
+
+  console.log('Sembrando perfiles de especialistas...');
+  await db.insert(profiles).values([
+    { id: specIds[0], fullName: 'Dra. María García', role: 'especialista' },
+    { id: specIds[1], fullName: 'Dr. Carlos López', role: 'especialista' },
+    { id: specIds[2], fullName: 'Lic. Ana Martínez', role: 'especialista' },
+    { id: specIds[3], fullName: 'Dr. Roberto Silva', role: 'especialista' },
+  ]).onConflictDoNothing();
+
+  console.log('Sembrando datos de especialistas...');
   await db.insert(specialists).values([
     {
+      userId: specIds[0],
       name: 'Dra. María García',
       specialty: 'Psicología Clínica',
       rating: '4.9',
-      experience: '8 años',
       image: 'https://i.pravatar.cc/150?img=47',
       availability: 'Lun - Vie',
+      verificationStatus: 'approved'
     },
     {
+      userId: specIds[1],
       name: 'Dr. Carlos López',
       specialty: 'Terapia Cognitivo-Conductual',
       rating: '4.8',
-      experience: '12 años',
       image: 'https://i.pravatar.cc/150?img=12',
       availability: 'Lun - Sáb',
+      verificationStatus: 'approved'
     },
     {
+      userId: specIds[2],
       name: 'Lic. Ana Martínez',
       specialty: 'Mindfulness y Bienestar',
       rating: '4.7',
-      experience: '6 años',
       image: 'https://i.pravatar.cc/150?img=32',
       availability: 'Mar - Sáb',
+      verificationStatus: 'approved'
     },
     {
+      userId: specIds[3],
       name: 'Dr. Roberto Silva',
       specialty: 'Psiquiatría',
       rating: '4.9',
-      experience: '15 años',
       image: 'https://i.pravatar.cc/150?img=8',
       availability: 'Lun - Jue',
+      verificationStatus: 'approved'
     },
   ]).onConflictDoNothing();
 
@@ -91,8 +112,8 @@ async function seed() {
     name: 'Nicolas Psicologo',
     specialty: 'Psicoterapia Avanzada',
     rating: '5.0',
-    experience: '15 años',
     availability: 'Lun - Dom',
+    verificationStatus: 'approved'
   }).onConflictDoNothing();
 
   await db.insert(exercises).values([
