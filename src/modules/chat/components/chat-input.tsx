@@ -32,9 +32,6 @@ export const ChatInput = ({ onSendMessage, isLoading }: ChatInputProps) => {
             className="w-full h-14 bg-zinc-50 dark:bg-slate-950 border border-zinc-100 dark:border-white/10 rounded-2xl px-6 py-2 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-[#B7B1F2]/50 transition-all font-medium placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
             disabled={isLoading}
           />
-          <div className="absolute right-4 text-[9px] font-mono text-zinc-300 dark:text-zinc-700 font-bold uppercase tracking-widest hidden sm:block">
-            UTF-8_READY
-          </div>
         </div>
 
         <motion.button

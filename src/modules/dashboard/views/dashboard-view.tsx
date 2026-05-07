@@ -76,7 +76,7 @@ export const DashboardView = () => {
   const chartColor = moodColors[selectedMood];
 
   return (
-    <div className="flex flex-col p-5 font-sans selection:bg-[#B7B1F2]/30 overflow-x-hidden">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 max-w-md mx-auto overflow-x-hidden overflow-y-auto scroll-smooth no-scrollbar">
       <header className="flex justify-between items-start mb-8 pt-6 px-1">
         <div>
           <div className="flex items-center gap-2 mb-1">

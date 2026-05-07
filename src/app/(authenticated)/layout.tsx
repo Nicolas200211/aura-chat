@@ -4,6 +4,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getMyProfile } from "@/app/actions/content-actions";
+import { cn } from "@/lib/utils";
 
 export default function AuthenticatedLayout({
   children,
@@ -41,7 +42,10 @@ export default function AuthenticatedLayout({
     <div className="flex min-h-screen bg-zinc-50 dark:bg-black items-center justify-center">
       {/* Mobile Shell: Confinement for desktop, full for mobile */}
       <div className="w-full max-w-md h-screen bg-[#F8F9FE] dark:bg-slate-950 flex flex-col relative overflow-hidden shadow-2xl lg:border-x lg:border-zinc-200 lg:dark:border-white/5">
-        <main className="flex-1 overflow-y-auto pb-24 scroll-smooth">
+        <main className={cn(
+          "flex-1 flex flex-col min-h-0",
+          shouldShowNav ? "pb-24" : "pb-0"
+        )}>
           {children}
         </main>
         

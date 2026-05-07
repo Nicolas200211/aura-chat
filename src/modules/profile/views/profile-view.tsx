@@ -91,7 +91,7 @@ export const ProfileView = () => {
   };
 
   return (
-    <div className="flex flex-col text-zinc-400 font-sans p-6 selection:bg-[#B7B1F2]/30">
+    <div className="flex-1 flex flex-col min-h-0 text-zinc-400 font-sans p-6 selection:bg-[#B7B1F2]/30 overflow-y-auto scroll-smooth no-scrollbar">
       <header className="mb-10 pt-8 flex flex-col items-center">
         <div className="relative group cursor-pointer" onClick={() => setIsEditing(true)}>
           <motion.div 

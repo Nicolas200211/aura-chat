@@ -114,7 +114,7 @@ export const TherapyView = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-4 selection:bg-[#B7B1F2]/30">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-4 selection:bg-[#B7B1F2]/30 overflow-y-auto scroll-smooth no-scrollbar">
       <header className="mb-6 pt-4 flex justify-between items-end px-2">
         <div>
           <h1 className="text-3xl font-bold text-zinc-800 dark:text-white tracking-tight">
