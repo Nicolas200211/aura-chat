@@ -30,12 +30,12 @@ export default function AuthenticatedLayout({
     "/therapy", 
     "/diary", 
     "/profile", 
-    "/chat",
+    "/chat/inbox", // La lista de mensajes sí muestra nav
     "/psychologist/patients"
   ];
   
-  // Se muestra solo si la ruta actual está en la lista de permitidas
-  const shouldShowNav = showNavRoutes.some(route => pathname.startsWith(route));
+  // Se muestra solo si la ruta actual es exactamente una de las principales
+  const shouldShowNav = showNavRoutes.includes(pathname);
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-black items-center justify-center">
