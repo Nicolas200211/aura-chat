@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { 
   Sparkles, Heart, Moon, Sun, BarChart3, MessageCircle, 
   BookOpen, Wind, Stethoscope, User, Smile, Frown, AlertCircle,
-  Activity, Bell, Settings, ChevronRight, Loader2, Zap
+  Activity, Bell, Settings, ChevronRight, Loader2, Zap, Shield, MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -27,8 +27,9 @@ export const DashboardView = () => {
   const router = useRouter();
   const [userName, setUserName] = useState("...");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>({ streak: 0, totalEntries: 0 });
+  const [role, setRole] = useState("usuario");
+  const [fullStats, setFullStats] = useState<any>(null);
+  const [selectedMood, setSelectedMood] = useState<"feliz" | "triste" | "ansioso">("feliz");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -44,24 +45,21 @@ export const DashboardView = () => {
       if (profile) {
         setUserName(profile.fullName || user.email?.split('@')[0] || "Usuario");
         setAvatarUrl(profile.avatarUrl || "");
+        setRole(profile.role || "usuario");
       } else {
         setUserName(user.email?.split('@')[0] || "Usuario");
       }
 
       const dashboardStats = await getDashboardStats();
       if (dashboardStats) {
-        setChartData(dashboardStats.chartData);
-        setStats({
-          streak: dashboardStats.streak,
-          totalEntries: dashboardStats.totalEntries
-        });
+        setFullStats(dashboardStats);
       }
       setIsLoading(false);
     };
     loadData();
   }, [router]);
 
-  if (isLoading) {
+  if (isLoading || !fullStats) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <Loader2 className="w-10 h-10 text-[#B7B1F2] animate-spin" />
@@ -69,8 +67,16 @@ export const DashboardView = () => {
     );
   }
 
+  const moodColors: Record<string, string> = {
+    feliz: "#A7E6D7",
+    triste: "#B7B1F2",
+    ansioso: "#FFC3A0"
+  };
+
+  const chartColor = moodColors[selectedMood];
+
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 pb-24 selection:bg-[#B7B1F2]/30 max-w-md mx-auto overflow-x-hidden">
+    <div className="flex flex-col p-5 font-sans selection:bg-[#B7B1F2]/30 overflow-x-hidden">
       <header className="flex justify-between items-start mb-8 pt-6 px-1">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -80,13 +86,25 @@ export const DashboardView = () => {
           <h1 className="text-3xl font-black text-zinc-800 dark:text-white tracking-tight">Hola, {userName}</h1>
         </div>
         <div className="flex gap-2 items-center">
+          {role === "admin" && (
+            <Link href="/admin">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shadow-sm active:scale-90 transition-transform">
+                <Shield className="w-5 h-5" />
+              </div>
+            </Link>
+          )}
+          <Link href="/chat/inbox">
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-white/5 flex items-center justify-center text-[#B7B1F2] shadow-sm active:scale-90 transition-transform">
+              <MessageSquare className="w-5 h-5" />
+            </div>
+          </Link>
           <InstallPWA />
           <Link href="/profile">
             <div className="w-10 h-10 rounded-xl bg-[#B7B1F2] border border-white dark:border-white/10 overflow-hidden flex items-center justify-center text-white font-black shadow-lg shadow-[#B7B1F2]/20 transition-transform active:scale-95">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
               ) : (
-                userName[0].toUpperCase()
+                userName[0]?.toUpperCase()
               )}
             </div>
           </Link>
@@ -95,33 +113,52 @@ export const DashboardView = () => {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2 flex justify-center gap-3 overflow-x-auto no-scrollbar pb-2">
-          <MoodCard icon={<Smile className="w-5 h-5" />} label="FELIZ" color="bg-[#A7E6D7]" active />
-          <MoodCard icon={<Frown className="w-5 h-5" />} label="TRISTE" color="bg-[#B7B1F2]" />
-          <MoodCard icon={<AlertCircle className="w-5 h-5" />} label="ANSIOSO" color="bg-[#FFC3A0]" />
+          <MoodCard 
+            icon={<Smile className="w-5 h-5" />} 
+            label="FELIZ" 
+            color="bg-[#A7E6D7]" 
+            active={selectedMood === "feliz"} 
+            onClick={() => setSelectedMood("feliz")}
+          />
+          <MoodCard 
+            icon={<Frown className="w-5 h-5" />} 
+            label="TRISTE" 
+            color="bg-[#B7B1F2]" 
+            active={selectedMood === "triste"} 
+            onClick={() => setSelectedMood("triste")}
+          />
+          <MoodCard 
+            icon={<AlertCircle className="w-5 h-5" />} 
+            label="ANSIOSO" 
+            color="bg-[#FFC3A0]" 
+            active={selectedMood === "ansioso"} 
+            onClick={() => setSelectedMood("ansioso")}
+          />
         </div>
 
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
+          key={selectedMood}
           className="col-span-2 bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl border border-zinc-50 dark:border-white/5"
         >
           <div className="flex justify-between items-start mb-8">
             <div>
-              <p className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">ESTADO_EMOCIONAL</p>
-              <h2 className="text-lg font-black text-zinc-800 dark:text-white tracking-tight">Análisis de Flujo</h2>
+              <p className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">ANÁLISIS_EMOCIONAL</p>
+              <h2 className="text-lg font-black text-zinc-800 dark:text-white tracking-tight capitalize">Frecuencia: {selectedMood}</h2>
             </div>
-            <div className="bg-[#B7B1F2]/10 p-2 rounded-lg">
-              <Activity className="w-4 h-4 text-[#B7B1F2]" />
+            <div className="p-2 rounded-lg" style={{ backgroundColor: `${chartColor}20` }}>
+              <Activity className="w-4 h-4" style={{ color: chartColor }} />
             </div>
           </div>
           
           <div className="h-40 w-full min-h-[160px] relative">
             <ResponsiveContainer width="100%" height="100%" minHeight={160}>
-              <AreaChart data={chartData}>
+              <AreaChart data={fullStats.moodData[selectedMood]}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#B7B1F2" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#B7B1F2" stopOpacity={0}/>
+                    <stop offset="5%" stopColor={chartColor} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.1} />
@@ -132,13 +169,13 @@ export const DashboardView = () => {
                   tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold', fontFamily: 'monospace' }}
                   dy={10}
                 />
-                <YAxis hide domain={[0, 10]} />
+                <YAxis hide domain={[0, 'auto']} />
                 <Tooltip 
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-lg shadow-2xl border border-zinc-100 dark:border-white/5">
-                          <p className="text-[10px] font-mono font-black text-[#B7B1F2]">{Number(payload[0].value).toFixed(1)}</p>
+                          <p className="text-[10px] font-mono font-black" style={{ color: chartColor }}>{payload[0].value} registros</p>
                         </div>
                       );
                     }
@@ -148,7 +185,7 @@ export const DashboardView = () => {
                 <Area 
                   type="monotone" 
                   dataKey="value" 
-                  stroke="#B7B1F2" 
+                  stroke={chartColor} 
                   strokeWidth={3}
                   fillOpacity={1} 
                   fill="url(#colorValue)" 
@@ -165,7 +202,7 @@ export const DashboardView = () => {
           </div>
           <div>
             <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest mb-1">Racha Real</p>
-            <p className="text-xl font-mono font-black text-zinc-800 dark:text-white">{stats.streak} Días</p>
+            <p className="text-xl font-mono font-black text-zinc-800 dark:text-white">{fullStats.streak} Días</p>
           </div>
         </div>
 
@@ -175,7 +212,7 @@ export const DashboardView = () => {
           </div>
           <div>
             <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest mb-1">Diarios</p>
-            <p className="text-xl font-mono font-black text-zinc-800 dark:text-white">{stats.totalEntries} Logs</p>
+            <p className="text-xl font-mono font-black text-zinc-800 dark:text-white">{fullStats.totalEntries} Logs</p>
           </div>
         </div>
 
@@ -196,6 +233,25 @@ export const DashboardView = () => {
           colSpan="col-span-1"
           textColor="text-emerald-950"
         />
+
+        <Link href="/diary" className="col-span-2">
+          <motion.div 
+            whileTap={{ scale: 0.98 }}
+            className="bg-[#7BD3EA] rounded-2xl p-6 shadow-xl border border-white/10 flex items-center justify-between group hover:scale-[1.01] transition-all relative overflow-hidden"
+          >
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 text-sky-950 flex items-center justify-center transition-all group-hover:scale-110">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-sky-950 tracking-tight">Diario Emocional</h3>
+                <p className="text-[10px] font-mono text-sky-900/60 font-black uppercase tracking-widest">Registra tus pensamientos</p>
+              </div>
+            </div>
+            <ChevronRight className="w-6 h-6 text-sky-950/40 group-hover:text-sky-950 transition-colors relative z-10" />
+            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+          </motion.div>
+        </Link>
 
         <Link href="/exercises" className="col-span-2">
           <motion.div 
@@ -220,18 +276,19 @@ export const DashboardView = () => {
   );
 };
 
-const MoodCard = ({ icon, label, color, active = false }: any) => (
+const MoodCard = ({ icon, label, color, active = false, onClick }: any) => (
   <motion.div 
     whileTap={{ scale: 0.95 }}
+    onClick={onClick}
     className={cn(
       "min-w-[88px] p-3 rounded-2xl flex flex-col items-center gap-2 shadow-md transition-all cursor-pointer border border-white/5",
-      color
+      active ? color : "bg-white dark:bg-zinc-900 opacity-60 hover:opacity-100"
     )}
   >
-    <div className={cn(label === "FELIZ" ? "text-emerald-950" : "text-white")}>
+    <div className={cn(active && label === "FELIZ" ? "text-emerald-950" : active ? "text-white" : "text-zinc-400")}>
       {icon}
     </div>
-    <span className={cn("text-[8px] font-black tracking-[0.15em] uppercase", label === "FELIZ" ? "text-emerald-950" : "text-white")}>
+    <span className={cn("text-[8px] font-black tracking-[0.15em] uppercase", active && label === "FELIZ" ? "text-emerald-950" : active ? "text-white" : "text-zinc-400")}>
       {label}
     </span>
   </motion.div>

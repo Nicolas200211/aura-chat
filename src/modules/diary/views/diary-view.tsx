@@ -15,18 +15,25 @@ import {
   Trash2,
   BookOpen,
   Activity,
-  Loader2
+  Loader2,
+  Pencil
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { getJournalEntries, saveJournalEntry } from "@/app/actions/content-actions";
+import { getJournalEntries, saveJournalEntry, deleteJournalEntry, updateJournalEntry } from "@/app/actions/content-actions";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 export const DiaryView = () => {
+// ... existing state and logic ...
   const router = useRouter();
   const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isAdding, setIsAdding] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState<number | null>(null);
+  const [editingEntry, setEditingEntry] = useState<any>(null);
+  
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newMood, setNewMood] = useState<string>("feliz");
@@ -48,24 +55,58 @@ export const DiaryView = () => {
     }
   };
 
-  const handleSave = async () => {
-    if (!newContent.trim()) return;
+  const handleEdit = (entry: any) => {
+    setEditingEntry(entry);
+    setNewTitle(entry.title);
+    setNewContent(entry.content);
+    setNewMood(entry.mood);
+    setIsAdding(true);
+  };
 
+  const handleDeleteClick = (id: number) => {
+    setEntryToDelete(id);
+    setIsDeleting(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!entryToDelete) return;
     try {
-      const result = await saveJournalEntry(newContent, newMood);
-      const savedEntry = result[0];
-
-      setEntries([savedEntry, ...entries]);
-      setIsAdding(false);
-      setNewTitle("");
-      setNewContent("");
+      await deleteJournalEntry(entryToDelete);
+      setEntries(entries.filter(e => e.id !== entryToDelete));
+      setIsDeleting(false);
+      setEntryToDelete(null);
     } catch (error) {
-      console.error("Error al guardar entrada:", error);
+      console.error("Error al eliminar:", error);
     }
   };
 
+  const handleSave = async () => {
+    if (!newContent.trim() || !newTitle.trim()) return;
+
+    try {
+      if (editingEntry) {
+        await updateJournalEntry(editingEntry.id, newTitle, newContent, newMood);
+      } else {
+        await saveJournalEntry(newTitle, newContent, newMood);
+      }
+      
+      await loadEntries();
+      closeModal();
+    } catch (error) {
+      console.error("Error al guardar:", error);
+    }
+  };
+
+  const closeModal = () => {
+    setIsAdding(false);
+    setEditingEntry(null);
+    setNewTitle("");
+    setNewContent("");
+    setNewMood("feliz");
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 pb-24 selection:bg-[#B7B1F2]/30 max-w-md mx-auto overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 max-w-md mx-auto overflow-x-hidden">
       <header className="mb-8 pt-6 flex justify-between items-end px-1">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -102,7 +143,7 @@ export const DiaryView = () => {
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="w-8 h-8 text-[#B7B1F2] animate-spin" />
-                <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Sincronizando_DB...</p>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Sincronizando_Diario...</p>
               </div>
             ) : entries.length === 0 ? (
               <div className="text-center py-20">
@@ -115,6 +156,7 @@ export const DiaryView = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
+                  onClick={() => handleEdit(entry)}
                   className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-white/5 shadow-2xl relative group cursor-pointer hover:border-[#B7B1F2]/20 transition-all"
                 >
                   <div className={cn(
@@ -124,7 +166,7 @@ export const DiaryView = () => {
                   )} />
 
                   <div className="flex justify-between items-start mb-4 pl-2">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={cn(
                           "text-[9px] font-mono font-bold uppercase tracking-widest",
@@ -134,13 +176,25 @@ export const DiaryView = () => {
                           {entry.mood}
                         </span>
                         <span className="text-zinc-200 dark:text-zinc-800">•</span>
-                        <span className="text-[9px] font-mono text-zinc-400">LOG-{entry.id.toString().slice(0, 3)}</span>
+                        <span className="text-[9px] font-mono text-zinc-400">
+                          {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : 'Hoy'}
+                        </span>
                       </div>
-                      <h3 className="text-lg font-black text-zinc-800 dark:text-white tracking-tight">Registro_Emocional</h3>
+                      <h3 className="text-lg font-black text-zinc-800 dark:text-white tracking-tight leading-tight">
+                        {entry.title || "Registro Emocional"}
+                      </h3>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400 font-bold uppercase">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(entry.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                    
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(entry.id);
+                        }}
+                        className="p-2 text-zinc-300 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed pl-2 font-medium">
@@ -167,50 +221,55 @@ export const DiaryView = () => {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-2xl p-8 shadow-2xl border border-zinc-100 dark:border-white/10"
             >
-              <h2 className="text-xl font-black text-zinc-800 dark:text-white mb-8 tracking-tight uppercase">Nuevo_Registro</h2>
+              <h2 className="text-xl font-black text-zinc-800 dark:text-white mb-8 tracking-tight uppercase">
+                {editingEntry ? newTitle : "Nuevo Registro"}
+              </h2>
 
               <div className="space-y-6">
                 <div>
-                  <label className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] mb-3 block">Título_Entrada</label>
+                  <label className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] mb-3 block">Título del Registro</label>
                   <input
                     type="text"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="DESC_BREVE..."
+                    placeholder="Escribe un título descriptivo..."
                     className="w-full bg-[#F8F9FE] dark:bg-slate-950 border border-zinc-100 dark:border-white/10 rounded-xl px-4 py-3 text-[11px] font-mono text-[#B7B1F2] focus:outline-none focus:border-[#B7B1F2]/50 placeholder:text-zinc-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] mb-3 block">Contenido_Mental</label>
+                  <label className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] mb-3 block">¿Qué tienes en mente?</label>
                   <textarea
                     rows={4}
                     value={newContent}
                     onChange={(e) => setNewContent(e.target.value)}
-                    placeholder="BUFFER_DATA_INPUT..."
+                    placeholder="Escribe libremente aquí..."
                     className="w-full bg-[#F8F9FE] dark:bg-slate-950 border border-zinc-100 dark:border-white/10 rounded-xl px-4 py-3 text-[11px] font-mono text-[#B7B1F2] focus:outline-none focus:border-[#B7B1F2]/50 placeholder:text-zinc-500 resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] mb-4 block">Mood_State</label>
+                  <label className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.3em] mb-4 block">Estado de Ánimo</label>
                   <div className="flex gap-3">
                     <MoodSelector
                       active={newMood === "feliz"}
                       onClick={() => setNewMood("feliz")}
                       icon={<Smile className="w-5 h-5" />}
+                      label="FELIZ"
                       color="bg-[#A7E6D7]"
                     />
                     <MoodSelector
                       active={newMood === "triste"}
                       onClick={() => setNewMood("triste")}
                       icon={<Frown className="w-5 h-5" />}
+                      label="TRISTE"
                       color="bg-[#B7B1F2]"
                     />
                     <MoodSelector
                       active={newMood === "ansioso"}
                       onClick={() => setNewMood("ansioso")}
                       icon={<AlertCircle className="w-5 h-5" />}
+                      label="ANSIOSO"
                       color="bg-[#FFC3A0]"
                     />
                   </div>
@@ -221,13 +280,13 @@ export const DiaryView = () => {
                     onClick={handleSave}
                     className="w-full bg-[#B7B1F2] text-white py-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-[#B7B1F2]/20 active:scale-95 transition-all"
                   >
-                    Guardar_Log
+                    Guardar Registro
                   </button>
                   <button
-                    onClick={() => setIsAdding(false)}
+                    onClick={closeModal}
                     className="w-full py-3 text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest hover:text-white transition-colors"
                   >
-                    Cancelar_Operación
+                    Cancelar Operación
                   </button>
                 </div>
               </div>
@@ -235,20 +294,37 @@ export const DiaryView = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={isDeleting}
+        onClose={() => setIsDeleting(false)}
+        onConfirm={confirmDelete}
+        title="¿Eliminar registro?"
+        description="Esta acción es permanente y no podrá ser recuperada del sistema."
+        confirmText="Sí, eliminar ahora"
+        cancelText="No, mantener registro"
+        variant="danger"
+      />
     </div>
   );
 };
 
-const MoodSelector = ({ active, onClick, icon, color }: any) => (
+const MoodSelector = ({ active, onClick, icon, label, color }: any) => (
   <button
     onClick={onClick}
     className={cn(
-      "flex-1 p-4 rounded-xl flex items-center justify-center transition-all border",
+      "flex-1 p-4 rounded-xl flex flex-col items-center gap-2 transition-all border",
       active
         ? cn(color, "text-white border-transparent shadow-lg scale-105")
         : "bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 border-zinc-100 dark:border-white/5"
     )}
   >
     {icon}
+    <span className={cn(
+      "text-[8px] font-black tracking-widest uppercase",
+      active ? (label === "FELIZ" ? "text-emerald-950" : "text-white") : "text-zinc-500"
+    )}>
+      {label}
+    </span>
   </button>
 );

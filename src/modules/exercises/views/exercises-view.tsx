@@ -33,7 +33,7 @@ export const ExercisesView = () => {
     );
   }
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 pb-24 selection:bg-[#B7B1F2]/30 max-w-md mx-auto">
+    <div className="flex min-h-screen flex-col bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 selection:bg-[#B7B1F2]/30 max-w-md mx-auto">
       <header className="mb-8 pt-6 flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-black text-zinc-800 dark:text-white tracking-tight">Ejercicios</h1>

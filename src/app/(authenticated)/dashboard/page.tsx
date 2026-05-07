@@ -1,4 +1,6 @@
 import { DashboardView } from "@/modules/dashboard/views/dashboard-view";
+import { PsychologistDashboardView } from "@/modules/dashboard/views/psychologist-dashboard-view";
+import { getMyProfile } from "@/app/actions/content-actions";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -6,6 +8,12 @@ export const metadata: Metadata = {
   description: "Tu resumen diario de bienestar en Aura Chat.",
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const profile = await getMyProfile();
+
+  if (profile?.role === "psicologo") {
+    return <PsychologistDashboardView />;
+  }
+
   return <DashboardView />;
 }

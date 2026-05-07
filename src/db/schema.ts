@@ -3,6 +3,7 @@ import { pgTable, bigserial, text, timestamp, uuid, bigint } from 'drizzle-orm/p
 export const journalEntries = pgTable('entradas_del_diario', {
   id: bigserial('identificación', { mode: 'number' }).primaryKey(),
   userId: uuid('ID de usuario').notNull(),
+  title: text('título').notNull().default('Registro Emocional'),
   content: text('contenido').notNull(),
   mood: text('ánimo').notNull(),
   createdAt: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
@@ -11,6 +12,7 @@ export const journalEntries = pgTable('entradas_del_diario', {
 export const conversations = pgTable('conversaciones', {
   id: bigserial('identificación', { mode: 'number' }).primaryKey(),
   userId: uuid('ID de usuario').notNull(),
+  specialistId: bigint('ID de especialista', { mode: 'number' }).references(() => specialists.id),
   title: text('título').default('Nueva conversación'),
   createdAt: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -37,12 +39,15 @@ export const exercises = pgTable('ceremonias', {
 
 export const specialists = pgTable('especialistas', {
   id: bigserial('identificación', { mode: 'number' }).primaryKey(),
+  userId: uuid('id_usuario').references(() => profiles.id).notNull(),
   name: text('nombre').notNull(),
   specialty: text('especialidad').notNull(),
-  rating: text('clasificación').notNull(),
-  experience: text('experiencia').notNull(),
+  rating: text('calificación').default('5.0'),
   image: text('imagen'),
-  availability: text('disponibilidad').notNull(),
+  price: text('precio').default('S/ 0'),
+  availability: text('disponibilidad').default('Disponible'),
+  licenseNumber: text('número_licencia'),
+  verificationStatus: text('estado_verificación').default('pending').notNull(), // 'pending', 'approved', 'rejected'
 });
 
 export const appointments = pgTable('citas', {
@@ -55,9 +60,24 @@ export const appointments = pgTable('citas', {
   createdAt: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const profiles = pgTable('perfiles', {
+export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey(), // Vinculado al Auth ID
-  fullName: text('nombre_completo'),
+  fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
-  updatedAt: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+  role: text('role').default('usuario').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const badges = pgTable('logros', {
+  id: bigserial('identificación', { mode: 'number' }).primaryKey(),
+  name: text('nombre').notNull(),
+  description: text('descripción').notNull(),
+  icon: text('icono').notNull(),
+});
+
+export const userBadges = pgTable('usuarios_logros', {
+  id: bigserial('identificación', { mode: 'number' }).primaryKey(),
+  userId: uuid('ID de usuario').references(() => profiles.id).notNull(),
+  badgeId: bigint('ID de logro', { mode: 'number' }).references(() => badges.id).notNull(),
+  earnedAt: timestamp('ganado_en', { withTimezone: true }).defaultNow().notNull(),
 });

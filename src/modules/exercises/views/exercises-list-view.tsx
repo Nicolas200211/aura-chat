@@ -65,7 +65,7 @@ export const ExercisesListView = () => {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FE] dark:bg-slate-950 p-5 pb-24 selection:bg-[#B7B1F2]/30 max-w-md mx-auto overflow-x-hidden font-sans">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FE] dark:bg-slate-950 p-5 selection:bg-[#B7B1F2]/30 max-w-md mx-auto overflow-x-hidden font-sans">
       <header className="mb-8 pt-6 flex justify-between items-end px-1">
         <div>
           <div className="flex items-center gap-2 mb-1">

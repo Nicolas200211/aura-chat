@@ -49,6 +49,8 @@ export function useAuth() {
         options: {
           data: {
             full_name: credentials.name || credentials.email.split('@')[0],
+            role: credentials.role || 'usuario',
+            license_number: credentials.licenseNumber || ''
           }
         }
       });

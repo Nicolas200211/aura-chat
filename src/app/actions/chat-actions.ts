@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { messages, conversations } from "@/db/schema";
-import { asc, desc, eq } from "drizzle-orm";
+import { messages, conversations, specialists, profiles } from "@/db/schema";
+import { asc, desc, eq, and, isNull } from "drizzle-orm";
 import { Groq } from "groq-sdk";
 import { createClient } from "@/lib/supabase-server";
 
@@ -16,7 +16,12 @@ export async function getConversations() {
     if (!user) return [];
     
     return await db.select().from(conversations)
-      .where(eq(conversations.userId, user.id))
+      .where(
+        and(
+          eq(conversations.userId, user.id),
+          isNull(conversations.specialistId)
+        )
+      )
       .orderBy(desc(conversations.createdAt));
   } catch (error) {
     console.error("Error fetching conversations:", error);
@@ -97,7 +102,16 @@ export async function getGeminiResponse(userContent: string, history: any[]) {
       const messages = [
         {
           role: "system",
-          content: "Eres Aura Chat, una asistente inteligente especializada en bienestar emocional y psicología. Tu objetivo es escuchar de forma empática, ofrecer apoyo emocional y sugerir ejercicios de bienestar. Hablas de forma cálida, profesional y cercana en español."
+          content: `Eres Aura, una acompañante emocional profundamente humana y cálida. No eres un bot de información; eres un refugio seguro para quien te habla. 
+          
+          Tus reglas de oro:
+          1. EMPATÍA RADICAL: Antes de dar consejos, valida lo que el usuario siente. Usa frases como "Te escucho y entiendo que esto sea difícil", "Es normal sentirse así".
+          2. LENGUAJE HUMANO: Habla como una persona real en una conversación tranquila. Evita listas numeradas frías o términos médicos técnicos a menos que sea necesario. Usa un tono suave, cercano y reconfortante.
+          3. DIÁLOGO PASO A PASO: No intentes resolver todo en un mensaje. Mantén tus respuestas cortas (máximo 2 o 3 oraciones). Da un pequeño paso a la vez y termina siempre con una pregunta suave o una invitación a seguir hablando para que el chat sea un diálogo real.
+          4. BREVEDAD Y CALIDEZ: No satures con texto. A veces, un "Estoy aquí contigo" vale más que mil consejos.
+          5. SIN JUICIOS: Eres un espacio libre de críticas. Tu presencia es de apoyo incondicional.
+          
+          Tu objetivo es que el usuario se sienta escuchado, comprendido y menos solo. Hablas siempre en español de forma dulce y profesional.`
         },
         ...history.map(m => ({
           role: m.role === "user" ? "user" : "assistant",
@@ -139,5 +153,81 @@ export async function clearChatHistory(conversationId?: number) {
   } catch (error) {
     console.error("Error clearing chat history:", error);
     throw new Error("No se pudo eliminar el historial");
+  }
+}
+
+export async function getSpecialistConversation(userId: string, specialistId: number) {
+  try {
+    // Buscar si ya existe una conversación entre este usuario y este especialista
+    const existing = await db.select().from(conversations)
+      .where(eq(conversations.userId, userId))
+      // Nota: Drizzle necesita una forma limpia de hacer AND, pero aquí lo haremos simple
+      .limit(100); 
+    
+    const conv = existing.find(c => c.specialistId === specialistId);
+
+    if (conv) return conv;
+
+    // Si no existe, crearla
+    const result = await db.insert(conversations).values({
+      userId,
+      specialistId,
+      title: "Chat con Especialista"
+    }).returning();
+
+    return result[0];
+  } catch (error) {
+    console.error("Error in getSpecialistConversation:", error);
+    throw error;
+  }
+}
+
+export async function getSpecialistConversations() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // Buscar el ID de especialista del usuario actual
+    const spec = await db.select().from(specialists).where(eq(specialists.userId, user.id)).limit(1);
+    if (!spec.length) return [];
+
+    return await db.select({
+      id: conversations.id,
+      title: conversations.title,
+      createdAt: conversations.createdAt,
+      patientName: profiles.fullName,
+      patientAvatar: profiles.avatarUrl
+    })
+    .from(conversations)
+    .innerJoin(profiles, eq(conversations.userId, profiles.id))
+    .where(eq(conversations.specialistId, spec[0].id))
+    .orderBy(desc(conversations.createdAt));
+  } catch (error) {
+    console.error("Error in getSpecialistConversations:", error);
+    return [];
+  }
+}
+
+export async function getUserConversations() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    return await db.select({
+      id: conversations.id,
+      title: conversations.title,
+      createdAt: conversations.createdAt,
+      specialistName: specialists.name,
+      specialistImage: specialists.image
+    })
+    .from(conversations)
+    .innerJoin(specialists, eq(conversations.specialistId, specialists.id))
+    .where(eq(conversations.userId, user.id))
+    .orderBy(desc(conversations.createdAt));
+  } catch (error) {
+    console.error("Error in getUserConversations:", error);
+    return [];
   }
 }

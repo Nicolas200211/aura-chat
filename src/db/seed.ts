@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { specialists, exercises } from './schema';
+import { specialists, exercises, profiles } from './schema';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -11,6 +11,34 @@ const db = drizzle(client);
 
 async function seed() {
   console.log('Sembrando datos iniciales...');
+
+  // --- CREAR USUARIO EN AUTH.USERS (Si no existe) ---
+  const testPsychologistId = '77777777-7777-7777-7777-777777777777';
+  const email = 'psicologo@test.com';
+
+  console.log('Creando credenciales en auth.users...');
+  try {
+    await client`
+      INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, role, aud, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change)
+      VALUES (
+        ${testPsychologistId}, 
+        '00000000-0000-0000-0000-000000000000', 
+        ${email}, 
+        crypt('Nicolas12345678', gen_salt('bf')), 
+        now(), 
+        'authenticated', 
+        'authenticated', 
+        '{"provider":"email","providers":["email"]}', 
+        '{"full_name":"Nicolas Psicologo"}', 
+        now(), 
+        now(), 
+        '', '', '', ''
+      )
+      ON CONFLICT (id) DO NOTHING;
+    `;
+  } catch (e) {
+    console.log('Aviso: No se pudo insertar en auth.users (posible falta de permisos), pero continuaremos con las tablas públicas.');
+  }
 
   await db.insert(specialists).values([
     {
@@ -46,6 +74,26 @@ async function seed() {
       availability: 'Lun - Jue',
     },
   ]).onConflictDoNothing();
+
+  // --- USUARIO PSICÓLOGO DE PRUEBA ---
+  console.log('Sembrando usuario psicólogo de prueba...');
+  await db.insert(profiles).values({
+    id: testPsychologistId,
+    fullName: 'Nicolas Psicologo',
+    role: 'psicologo',
+  }).onConflictDoUpdate({
+    target: profiles.id,
+    set: { role: 'psicologo' }
+  });
+
+  await db.insert(specialists).values({
+    userId: testPsychologistId,
+    name: 'Nicolas Psicologo',
+    specialty: 'Psicoterapia Avanzada',
+    rating: '5.0',
+    experience: '15 años',
+    availability: 'Lun - Dom',
+  }).onConflictDoNothing();
 
   await db.insert(exercises).values([
     {

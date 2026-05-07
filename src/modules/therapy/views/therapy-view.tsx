@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, MessageCircle, Calendar, ShieldCheck, Search, X, CheckCircle2, Clock, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSpecialists, getAppointments, saveAppointment, deleteAppointment } from "@/app/actions/content-actions";
+import { getSpecialists, getAppointments, saveAppointment, deleteAppointment, getMyProfile, getSpecialistAppointments } from "@/app/actions/content-actions";
+import { getSpecialistConversation } from "@/app/actions/chat-actions";
 
 export const TherapyView = () => {
+  const router = useRouter();
   const [specialistsList, setSpecialistsList] = useState<any[]>([]);
   const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [role, setRole] = useState<string>("usuario");
   const [activeTab, setActiveTab] = useState<"specialists" | "appointments">("specialists");
   const [selectedSpecialist, setSelectedSpecialist] = useState<any>(null);
   const [isBooking, setIsBooking] = useState(false);
@@ -19,23 +25,66 @@ export const TherapyView = () => {
 
   const loadData = async () => {
     setIsLoading(true);
-    const [specialistsData, appointmentsData] = await Promise.all([
-      getSpecialists(),
-      getAppointments()
-    ]);
-    setSpecialistsList(specialistsData);
-    setAppointmentsList(appointmentsData);
-    setIsLoading(false);
+    try {
+      // Obtener perfil para saber el rol
+      const profile = await getMyProfile();
+      const userRole = profile?.role || "usuario";
+      setRole(userRole);
+
+      if (userRole === "psicologo") {
+        setActiveTab("appointments");
+        const appointmentsData = await getSpecialistAppointments();
+        setAppointmentsList(appointmentsData);
+      } else {
+        const [specialistsData, appointmentsData] = await Promise.all([
+          getSpecialists(),
+          getAppointments()
+        ]);
+        setSpecialistsList(specialistsData);
+        setAppointmentsList(appointmentsData);
+      }
+    } catch (error) {
+      console.error("Error loading therapy data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
+  if (isLoading || isRedirecting) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F9FE] dark:bg-slate-950">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#B7B1F2] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-[0.3em]">
+            {isRedirecting ? "CONECTANDO_CANAL..." : "Sincronizando..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const handleBook = (specialist: any) => {
     setSelectedSpecialist(specialist);
     setIsBooking(true);
     setStep(1);
+  };
+
+  const handleChat = async (specialistId: number) => {
+    setIsRedirecting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const conv = await getSpecialistConversation(user.id, specialistId);
+      router.push(`/chat/member/${conv.id}`);
+    } catch (error) {
+      console.error("Error al iniciar chat:", error);
+    } finally {
+      setIsRedirecting(false);
+    }
   };
 
   const confirmBooking = async () => {
@@ -65,39 +114,43 @@ export const TherapyView = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-4 pb-24 selection:bg-[#B7B1F2]/30">
+    <div className="flex min-h-screen flex-col bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-4 selection:bg-[#B7B1F2]/30">
       <header className="mb-6 pt-4 flex justify-between items-end px-2">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-800 dark:text-white tracking-tight">Terapia</h1>
+          <h1 className="text-3xl font-bold text-zinc-800 dark:text-white tracking-tight">
+            {role === "psicologo" ? "Mi Agenda" : "Terapia"}
+          </h1>
           <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mt-1">SISTEMA_EMOCIONAL v1.0</p>
         </div>
       </header>
 
       {/* Tabs System - Bento Style */}
-      <div className="grid grid-cols-2 gap-2 p-1 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-white/5 mb-8 shadow-sm">
-        <button
-          onClick={() => setActiveTab("specialists")}
-          className={cn(
-            "py-3 text-[10px] font-bold uppercase tracking-widest transition-all rounded-xl",
-            activeTab === "specialists"
-              ? "bg-[#B7B1F2] text-white shadow-lg shadow-[#B7B1F2]/20"
-              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          )}
-        >
-          Explorar
-        </button>
-        <button
-          onClick={() => setActiveTab("appointments")}
-          className={cn(
-            "py-3 text-[10px] font-bold uppercase tracking-widest transition-all rounded-xl",
-            activeTab === "appointments"
-              ? "bg-[#B7B1F2] text-white shadow-lg shadow-[#B7B1F2]/20"
-              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          )}
-        >
-          Mis Citas
-        </button>
-      </div>
+      {role !== "psicologo" && (
+        <div className="grid grid-cols-2 gap-2 p-1 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-white/5 mb-8 shadow-sm">
+          <button
+            onClick={() => setActiveTab("specialists")}
+            className={cn(
+              "py-3 text-[10px] font-bold uppercase tracking-widest transition-all rounded-xl",
+              activeTab === "specialists"
+                ? "bg-[#B7B1F2] text-white shadow-lg shadow-[#B7B1F2]/20"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            )}
+          >
+            Explorar
+          </button>
+          <button
+            onClick={() => setActiveTab("appointments")}
+            className={cn(
+              "py-3 text-[10px] font-bold uppercase tracking-widest transition-all rounded-xl",
+              activeTab === "appointments"
+                ? "bg-[#B7B1F2] text-white shadow-lg shadow-[#B7B1F2]/20"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            )}
+          >
+            Mis Citas
+          </button>
+        </div>
+      )}
 
       {activeTab === "specialists" ? (
         <div className="flex flex-col gap-4">
@@ -173,10 +226,16 @@ export const TherapyView = () => {
 
                 <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-white/5 flex items-center justify-between">
                   <div className="flex flex-col">
-                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Experiencia</span>
-                    <span className="text-sm font-mono font-bold text-[#A7E6D7]">{specialist.experience}</span>
+                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Precio por Sesión</span>
+                    <span className="text-sm font-mono font-bold text-[#A7E6D7]">{specialist.price}</span>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => handleChat(specialist.id)}
+                      className="p-3 bg-zinc-100 dark:bg-slate-950 border border-zinc-100 dark:border-white/5 text-[#B7B1F2] rounded-xl hover:bg-[#B7B1F2] hover:text-white transition-all shadow-sm"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                    </button>
                     <button
                       onClick={() => handleBook(specialist)}
                       className="bg-[#B7B1F2] text-white px-5 py-3 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-[#B7B1F2]/90 transition-all shadow-lg shadow-[#B7B1F2]/20"
@@ -200,15 +259,17 @@ export const TherapyView = () => {
             >
               <div className="flex justify-between items-start mb-6">
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 bg-[#F8F9FE] dark:bg-slate-950 border border-zinc-100 dark:border-white/5 rounded-xl flex items-center justify-center text-[#B7B1F2] font-bold">
-                    {app.specialistImage ? (
-                      <img src={app.specialistImage} alt={app.specialistName} className="w-full h-full object-cover rounded-xl" />
+                  <div className="w-12 h-12 bg-[#F8F9FE] dark:bg-slate-950 border border-zinc-100 dark:border-white/5 rounded-xl flex items-center justify-center text-[#B7B1F2] font-bold overflow-hidden">
+                    {role === "psicologo" ? (
+                      app.patientImage ? <img src={app.patientImage} alt={app.patientName} className="w-full h-full object-cover" /> : app.patientName?.[0]
                     ) : (
-                      app.specialistName[0]
+                      app.specialistImage ? <img src={app.specialistImage} alt={app.specialistName} className="w-full h-full object-cover" /> : app.specialistName?.[0]
                     )}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-800 dark:text-white">{app.specialistName}</h3>
+                    <h3 className="text-sm font-bold text-zinc-800 dark:text-white">
+                      {role === "psicologo" ? app.patientName : app.specialistName}
+                    </h3>
                     <p className="text-[10px] font-mono text-zinc-500 mt-1">CITA-{app.id}</p>
                   </div>
                 </div>

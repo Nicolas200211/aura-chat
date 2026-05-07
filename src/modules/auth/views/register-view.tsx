@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "../hooks/use-auth";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -13,7 +14,7 @@ export const RegisterView = () => {
   const router = useRouter();
   const { register, isLoading, error } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
+  const [formData, setFormData] = useState({ name: "", email: "", password: "", role: "usuario", licenseNumber: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,9 +24,14 @@ export const RegisterView = () => {
     }
   };
 
+  const roles = [
+    { id: "usuario", title: "Miembro", desc: "Busco bienestar y paz mental" },
+    { id: "psicologo", title: "Psicólogo", desc: "Quiero ayudar a otros" }
+  ];
+
   return (
     <div className="flex min-h-screen flex-col p-8 bg-gradient-to-br from-[#E7E6FF] via-[#E8F6FF] to-[#E8FFF6] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <header className="mb-12">
+      <header className="mb-8">
         <button 
           onClick={() => router.back()}
           className="p-2 -ml-2 rounded-full hover:bg-white/50 transition-colors"
@@ -34,23 +40,23 @@ export const RegisterView = () => {
         </button>
       </header>
 
-      <main className="flex-1 flex flex-col max-w-md mx-auto w-full">
-        <div className="mb-10 text-center flex flex-col items-center">
+      <main className="flex-1 flex flex-col max-w-md mx-auto w-full pb-10">
+        <div className="mb-8 text-center flex flex-col items-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="mb-6 w-24 h-24 rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-white/10"
+            className="mb-4 w-20 h-20 rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-white/10"
           >
             <img src="/image/logo/logo_mente_en_calma.png" alt="Aura Logo" className="w-full h-full object-cover" />
           </motion.div>
           <motion.h2 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="text-3xl font-black text-zinc-800 dark:text-white tracking-tight uppercase"
+            className="text-2xl font-black text-zinc-800 dark:text-white tracking-tight uppercase"
           >
-            Únete a nosotros
+            Comienza tu viaje
           </motion.h2>
-          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mt-1">Crea tu cuenta_v4.0</p>
+          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mt-1">Crea tu cuenta de acceso</p>
         </div>
 
         {error && (
@@ -63,7 +69,32 @@ export const RegisterView = () => {
           </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="grid grid-cols-2 gap-3 mb-2">
+            {roles.map((r) => (
+              <div 
+                key={r.id}
+                onClick={() => setFormData({ ...formData, role: r.id })}
+                className={cn(
+                  "p-4 rounded-2xl border-2 transition-all cursor-pointer text-center flex flex-col gap-1",
+                  formData.role === r.id 
+                    ? "bg-white dark:bg-zinc-800 border-[#928EFF] shadow-xl shadow-[#928EFF]/10" 
+                    : "bg-white/50 dark:bg-white/5 border-transparent hover:border-zinc-200 dark:hover:border-white/10"
+                )}
+              >
+                <span className={cn(
+                  "text-xs font-black uppercase tracking-widest",
+                  formData.role === r.id ? "text-[#928EFF]" : "text-zinc-500"
+                )}>
+                  {r.title}
+                </span>
+                <span className="text-[9px] text-zinc-400 leading-tight">
+                  {r.desc}
+                </span>
+              </div>
+            ))}
+          </div>
+
           <Input
             label="Nombre completo"
             placeholder="Juan Pérez"
@@ -73,6 +104,23 @@ export const RegisterView = () => {
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
           />
+
+          {formData.role === "psicologo" && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+            >
+              <Input
+                label="Número de Licencia Profesional"
+                placeholder="CP-123456"
+                type="text"
+                icon={<Lock className="w-5 h-5" />}
+                value={formData.licenseNumber}
+                onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
+                required={formData.role === "psicologo"}
+              />
+            </motion.div>
+          )}
 
           <Input
             label="Correo electrónico"
@@ -103,8 +151,8 @@ export const RegisterView = () => {
             </button>
           </div>
 
-          <Button type="submit" className="h-14 mt-4" disabled={isLoading}>
-            {isLoading ? "Creando Cuenta..." : "Registrarse"}
+          <Button type="submit" className="h-14 mt-2" disabled={isLoading}>
+            {isLoading ? "Creando Cuenta..." : "Registrarse Ahora"}
           </Button>
         </form>
 
