@@ -195,7 +195,7 @@ export const PsychologistDashboardView = () => {
   }
 
   return (
-    <div className="flex flex-col p-5 font-sans selection:bg-[#928EFF]/30">
+    <div className="flex-1 flex flex-col p-5 font-sans selection:bg-[#928EFF]/30 overflow-y-auto no-scrollbar">
       <header className="flex justify-between items-start mb-6 pt-6 px-1">
         <div>
           <div className="flex items-center gap-2 mb-1">

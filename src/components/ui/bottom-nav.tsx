@@ -55,7 +55,7 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
       : userNavItems;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[75px] z-50 flex justify-center pb-safe">
+    <nav className="absolute bottom-0 left-0 right-0 h-[75px] z-50 flex justify-center pb-safe">
       {/* Fondo SVG Cóncavo */}
       <div className="absolute inset-0 w-full h-full pointer-events-none">
         <svg 

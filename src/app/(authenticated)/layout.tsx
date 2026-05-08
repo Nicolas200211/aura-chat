@@ -58,7 +58,7 @@ export default function AuthenticatedLayout({
       )}
       bottomNav={shouldShowNav ? <BottomNav role={role} /> : undefined}
     >
-      <div className={cn("flex-1 flex flex-col min-h-0", isChatRoute && "h-full")}>
+      <div className="flex-1 flex flex-col min-h-0 h-full">
         {children}
       </div>
     </MobileShell>
