@@ -3,8 +3,9 @@
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getMyProfile } from "@/app/actions/content-actions";
+import { getMyProfile, getAuthenticatedUser } from "@/app/actions/content-actions";
 import { cn } from "@/lib/utils";
+import { MobileShell } from "@/components/layout/mobile-shell";
 
 export default function AuthenticatedLayout({
   children,
@@ -13,9 +14,16 @@ export default function AuthenticatedLayout({
 }) {
   const pathname = usePathname();
   const [role, setRole] = useState<string>("usuario");
-  
+
   useEffect(() => {
     const loadRole = async () => {
+      // 1. Intentamos obtener el rol directamente de la sesión (más rápido)
+      const authUser = await getAuthenticatedUser();
+      if (authUser?.role) {
+        setRole(authUser.role);
+      }
+      
+      // 2. Cargamos el perfil completo en segundo plano
       const profile = await getMyProfile();
       if (profile?.role) {
         setRole(profile.role);
@@ -23,34 +31,36 @@ export default function AuthenticatedLayout({
     };
     loadRole();
   }, []);
-  
+
   // Lista de rutas exactas donde SÍ se debe mostrar la navegación inferior
   const showNavRoutes = [
-    "/dashboard", 
-    "/exercises", 
-    "/therapy", 
-    "/diary", 
-    "/profile", 
+    "/dashboard",
+    "/exercises",
+    "/therapy",
+    "/diary",
+    "/profile",
     "/chat/inbox", // La lista de mensajes sí muestra nav
-    "/psychologist/patients"
+    "/psychologist/patients",
+    "/admin",
+    "/admin/dashboard"
   ];
-  
+
   // Se muestra solo si la ruta actual es exactamente una de las principales
   const shouldShowNav = showNavRoutes.includes(pathname);
+  const isChatRoute = pathname.startsWith("/chat");
+  const isAdminRoute = pathname.startsWith("/admin");
 
   return (
-    <div className="flex min-h-screen bg-zinc-50 dark:bg-black items-center justify-center">
-      {/* Mobile Shell: Confinement for desktop, full for mobile */}
-      <div className="w-full max-w-md h-screen bg-[#F8F9FE] dark:bg-slate-950 flex flex-col relative overflow-hidden shadow-2xl lg:border-x lg:border-zinc-200 lg:dark:border-white/5">
-        <main className={cn(
-          "flex-1 flex flex-col min-h-0",
-          shouldShowNav ? "pb-24" : "pb-0"
-        )}>
-          {children}
-        </main>
-        
-        {shouldShowNav && <BottomNav role={role} />}
+    <MobileShell 
+      mainClassName={cn(
+        shouldShowNav ? "pb-24" : "pb-0",
+        isChatRoute && "overflow-hidden h-full"
+      )}
+      bottomNav={shouldShowNav ? <BottomNav role={role} /> : undefined}
+    >
+      <div className={cn("flex-1 flex flex-col min-h-0", isChatRoute && "h-full")}>
+        {children}
       </div>
-    </div>
+    </MobileShell>
   );
 }

@@ -30,7 +30,7 @@ export const RegisterView = () => {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col p-8 bg-gradient-to-br from-[#E7E6FF] via-[#E8F6FF] to-[#E8FFF6] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="flex-1 h-full flex flex-col p-8 bg-gradient-to-br from-[#E7E6FF] via-[#E8F6FF] to-[#E8FFF6] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <header className="mb-8">
         <button 
           onClick={() => router.back()}
@@ -40,7 +40,7 @@ export const RegisterView = () => {
         </button>
       </header>
 
-      <main className="flex-1 flex flex-col max-w-md mx-auto w-full pb-10">
+      <main className="flex-1 flex flex-col w-full pb-10">
         <div className="mb-8 text-center flex flex-col items-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}

@@ -17,6 +17,17 @@ export function useAuth() {
         throw new Error("El correo y la contraseña son obligatorios");
       }
 
+      // 1. Intentamos Login Personalizado (Respaldo Robusto)
+      const { customLogin } = await import("@/app/actions/auth-actions");
+      const res = await customLogin(credentials.email, credentials.password);
+
+      if (res.success) {
+        // Si el login personalizado funciona, redirigimos directamente
+        window.location.href = "/dashboard";
+        return { success: true, message: "Inicio de sesión exitoso" };
+      }
+
+      // 2. Si falla el personalizado, intentamos Supabase (Solo por si acaso)
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
@@ -37,29 +48,19 @@ export function useAuth() {
   const register = async (credentials: UserCredentials): Promise<AuthResponse> => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      if (!credentials.email || !credentials.password) {
-        throw new Error("El correo y la contraseña son obligatorios");
-      }
-
-      const { data, error: authError } = await supabase.auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
-        options: {
-          data: {
-            full_name: credentials.name || credentials.email.split('@')[0],
-            role: credentials.role || 'usuario',
-            license_number: credentials.licenseNumber || ''
-          }
-        }
+      const { customRegister } = await import("@/app/actions/auth-actions");
+      const res = await customRegister({
+        name: credentials.name || credentials.email.split('@')[0],
+        email: credentials.email || '',
+        pass: credentials.password || '',
+        role: credentials.role || 'usuario',
+        licenseNumber: credentials.licenseNumber
       });
-
-      if (authError) throw authError;
-
-      return { success: true, message: "Registro exitoso. Revisa tu email si es necesario." };
+      if (!res.success) throw new Error(res.message);
+      return { success: true, message: res.message };
     } catch (err: any) {
-      const msg = err.message || "Error al registrar usuario";
+      const msg = err.message || "Error al registrarse";
       setError(msg);
       return { success: false, message: msg };
     } finally {

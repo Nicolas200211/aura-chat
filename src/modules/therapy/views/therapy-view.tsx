@@ -8,7 +8,7 @@ import { Star, MessageCircle, Calendar, ShieldCheck, Search, X, CheckCircle2, Cl
 import { cn } from "@/lib/utils";
 import { getSpecialists, getAppointments, saveAppointment, deleteAppointment, getMyProfile, getSpecialistAppointments } from "@/app/actions/content-actions";
 import { getSpecialistConversation } from "@/app/actions/chat-actions";
-
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 export const TherapyView = () => {
   const router = useRouter();
   const [specialistsList, setSpecialistsList] = useState<any[]>([]);
@@ -22,7 +22,8 @@ export const TherapyView = () => {
   const [step, setStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState(16);
   const [selectedTime, setSelectedTime] = useState("10:30 AM");
-
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<number | null>(null);
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -76,9 +77,12 @@ export const TherapyView = () => {
   const handleChat = async (specialistId: number) => {
     setIsRedirecting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const conv = await getSpecialistConversation(user.id, specialistId);
+      const profile = await getMyProfile();
+      if (!profile) {
+        router.push("/auth/login");
+        return;
+      }
+      const conv = await getSpecialistConversation(profile.id, specialistId);
       router.push(`/chat/member/${conv.id}`);
     } catch (error) {
       console.error("Error al iniciar chat:", error);
@@ -102,14 +106,21 @@ export const TherapyView = () => {
     }
   };
 
-  const handleCancelAppointment = async (id: number) => {
-    if (confirm("¿Estás seguro de que deseas cancelar esta cita?")) {
-      try {
-        await deleteAppointment(id);
-        await loadData();
-      } catch (error) {
-        alert("No se pudo cancelar la cita.");
-      }
+  const handleCancelAppointment = (id: number) => {
+    setAppointmentToCancel(id);
+    setIsCancelling(true);
+  };
+
+  const confirmCancel = async () => {
+    if (!appointmentToCancel) return;
+    try {
+      await deleteAppointment(appointmentToCancel);
+      await loadData();
+    } catch (error) {
+      console.error("No se pudo cancelar la cita:", error);
+    } finally {
+      setIsCancelling(false);
+      setAppointmentToCancel(null);
     }
   };
 
@@ -436,6 +447,17 @@ export const TherapyView = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={isCancelling}
+        onClose={() => setIsCancelling(false)}
+        onConfirm={confirmCancel}
+        title="¿Cancelar Cita?"
+        description="¿Estás seguro de que deseas cancelar esta cita? El especialista será notificado y perderás este espacio reservado."
+        confirmText="Sí, cancelar cita"
+        cancelText="No, volver"
+        variant="danger"
+      />
     </div>
   );
 };

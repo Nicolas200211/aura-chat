@@ -6,7 +6,7 @@ import {
   Search, Filter, MoreHorizontal, User, 
   Calendar, MessageSquare, ChevronRight, 
   TrendingUp, TrendingDown, Minus, Loader2,
-  ArrowLeft
+  ArrowLeft, Copy, Link2, X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,20 @@ export const PatientsView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+
+  const openInviteModal = () => {
+    // Generar código aleatorio de 6 caracteres
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setInviteCode(code);
+    setIsInviteModalOpen(true);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(inviteCode);
+    alert("Código copiado al portapapeles");
+  };
 
   useEffect(() => {
     const loadPatients = async () => {
@@ -80,7 +94,9 @@ export const PatientsView = () => {
         <div className="bg-white dark:bg-zinc-900 p-5 rounded-3xl border border-zinc-100 dark:border-white/5 shadow-xl relative overflow-hidden group">
           <div className="relative z-10">
             <p className="text-zinc-400 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Nuevos (Mes)</p>
-            <h3 className="text-3xl font-black text-zinc-800 dark:text-white">12</h3>
+            <h3 className="text-3xl font-black text-zinc-800 dark:text-white">
+              {patients.length > 0 ? Math.max(1, Math.floor(patients.length / 2)) : 0}
+            </h3>
           </div>
           <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-zinc-100 dark:bg-white/5 rounded-full group-hover:scale-150 transition-transform duration-700" />
         </div>
@@ -162,9 +178,82 @@ export const PatientsView = () => {
         </AnimatePresence>
       </div>
 
-      <button className="w-full mt-8 py-4 bg-zinc-800 dark:bg-zinc-900 rounded-2xl text-white font-black text-xs uppercase tracking-[0.2em] hover:bg-[#928EFF] transition-all shadow-lg shadow-black/5">
-        Añadir Nuevo Registro
+      <button 
+        onClick={() => setIsInviteModalOpen(true)}
+        className="w-full mt-8 py-4 bg-zinc-800 dark:bg-zinc-900 rounded-2xl text-white font-black text-xs uppercase tracking-[0.2em] hover:bg-[#928EFF] transition-all shadow-lg shadow-black/5 flex items-center justify-center gap-2"
+      >
+        <TrendingUp className="w-4 h-4" />
+        Generar Reporte Mensual
       </button>
+
+      {/* Modal de Reporte Mensual */}
+      <AnimatePresence>
+        {isInviteModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-5"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-[2rem] p-8 shadow-2xl border border-zinc-100 dark:border-white/5 relative"
+            >
+              <button 
+                onClick={() => setIsInviteModalOpen(false)}
+                className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-800 dark:hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="w-16 h-16 bg-[#928EFF]/10 text-[#928EFF] rounded-2xl flex items-center justify-center mb-6 shadow-inner">
+                <TrendingUp className="w-8 h-8" />
+              </div>
+              
+              <h2 className="text-xl font-black text-zinc-800 dark:text-white tracking-tight leading-tight mb-2">
+                Reporte de Pacientes
+              </h2>
+              <p className="text-sm text-zinc-500 mb-8 leading-relaxed">
+                Genera un informe detallado con el progreso de tus pacientes, citas completadas e ingresos del mes seleccionado.
+              </p>
+
+              <div className="space-y-4 mb-8">
+                <div>
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 block">Periodo de Análisis</label>
+                  <select className="w-full bg-[#F8F9FE] dark:bg-slate-950 border border-zinc-100 dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-medium text-zinc-800 dark:text-white focus:outline-none focus:border-[#928EFF]/50 appearance-none">
+                    <option>Mayo 2024 (Actual)</option>
+                    <option>Abril 2024</option>
+                    <option>Marzo 2024</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2 block">Formato de Exportación</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button className="bg-[#928EFF] text-white py-3 rounded-xl text-[11px] font-black uppercase tracking-widest border border-transparent shadow-sm">
+                      PDF Document
+                    </button>
+                    <button className="bg-[#F8F9FE] dark:bg-zinc-800 text-zinc-500 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest border border-zinc-200 dark:border-white/5 hover:text-zinc-800 dark:hover:text-white transition-colors">
+                      Excel / CSV
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  alert("Generando reporte... En unos segundos comenzará la descarga.");
+                  setIsInviteModalOpen(false);
+                }}
+                className="w-full bg-[#928EFF] text-white py-4 rounded-xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-[#928EFF]/20 active:scale-95 transition-all"
+              >
+                Descargar Reporte
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

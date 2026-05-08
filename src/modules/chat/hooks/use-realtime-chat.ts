@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Message } from "../interfaces/message.interface";
 import { getChatMessages, saveChatMessage } from "@/app/actions/chat-actions";
 
-export function useRealtimeChat(conversationId: number | null) {
+export function useRealtimeChat(conversationId: number | null, currentUserRole: 'user' | 'assistant' = 'user') {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,7 +39,16 @@ export function useRealtimeChat(conversationId: number | null) {
         (payload: any) => {
           const newMsg = payload.new;
           
-          // Evitar duplicados locales (mensajes enviados por nosotros que ya se añadieron al estado)
+          // Reproducir sonido si el mensaje es de la otra persona
+          if (newMsg.role !== currentUserRole) {
+            try {
+              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+              audio.volume = 0.5;
+              audio.play().catch(() => {}); // Ignorar errores si el navegador bloquea autoplay
+            } catch (e) {}
+          }
+
+          // Evitar duplicados locales
           setMessages((current) => {
             if (current.some(m => m.id === newMsg.id.toString())) return current;
             

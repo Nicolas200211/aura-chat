@@ -1,4 +1,4 @@
-import { pgTable, bigserial, text, timestamp, uuid, bigint } from 'drizzle-orm/pg-core';
+import { pgTable, bigserial, text, timestamp, uuid, bigint, boolean } from 'drizzle-orm/pg-core';
 
 export const journalEntries = pgTable('entradas_del_diario', {
   id: bigserial('identificación', { mode: 'number' }).primaryKey(),
@@ -23,6 +23,7 @@ export const messages = pgTable('mensajes', {
   userId: uuid('ID de usuario').notNull(),
   text: text('texto').notNull(),
   role: text('role').notNull(),
+  read: boolean('leído').default(false).notNull(),
   timestamp: timestamp('marca de tiempo', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -80,4 +81,13 @@ export const userBadges = pgTable('usuarios_logros', {
   userId: uuid('ID de usuario').references(() => profiles.id).notNull(),
   badgeId: bigint('ID de logro', { mode: 'number' }).references(() => badges.id).notNull(),
   earnedAt: timestamp('ganado_en', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const systemUsers = pgTable('usuarios_sistema', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').unique().notNull(),
+  passwordHash: text('password_hash').notNull(),
+  fullName: text('full_name'),
+  role: text('role').default('usuario').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

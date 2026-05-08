@@ -1,10 +1,12 @@
 "use client";
 
-import { Home, Dumbbell, MessageCircle, User, Calendar, Users } from "lucide-react";
+import { Home, Dumbbell, MessageCircle, User, Calendar, Users, Shield } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { getUnreadMessagesCount } from "@/app/actions/chat-actions";
 
 interface BottomNavProps {
   role?: string;
@@ -25,13 +27,36 @@ const psychologistNavItems = [
   { label: "PERFIL", icon: User, path: "/profile", id: "PROF" },
 ];
 
+const adminNavItems = [
+  { label: "INICIO", icon: Home, path: "/dashboard", id: "DASH" },
+  { label: "PANEL", icon: Shield, path: "/admin/dashboard", id: "ADMIN" },
+  { label: "PERFIL", icon: User, path: "/profile", id: "PROF" },
+];
+
 export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
   const pathname = usePathname();
-  const navItems = role === "psicologo" ? psychologistNavItems : userNavItems;
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const checkUnread = async () => {
+      const count = await getUnreadMessagesCount();
+      setUnreadCount(count);
+    };
+    checkUnread();
+    // Revisar cada 10 segundos para mayor fluidez
+    const interval = setInterval(checkUnread, 10000);
+    return () => clearInterval(interval);
+  }, [pathname]);
+  
+  const navItems = role === "psicologo" 
+    ? psychologistNavItems 
+    : role === "admin" 
+      ? adminNavItems 
+      : userNavItems;
 
   return (
     <nav className="absolute bottom-0 left-0 right-0 h-[75px] z-50 flex justify-center">
-      {/* Fondo SVG Cóncavo - Ahora contenido por el layout automáticamente */}
+      {/* Fondo SVG Cóncavo */}
       <div className="absolute inset-0 w-full h-full pointer-events-none">
         <svg 
           viewBox="0 0 100 100" 
@@ -46,6 +71,7 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
         {navItems.map((item) => {
           const isActive = pathname === item.path;
           const isAura = item.id === "CHAT";
+          const hasNotification = unreadCount > 0 && (item.id === "PATS" || item.id === "THER" || item.id === "CHAT");
           
           return (
             <Link 
@@ -57,7 +83,7 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
               )}
             >
               <div className={cn(
-                "transition-all duration-300 flex items-center justify-center",
+                "transition-all duration-300 flex items-center justify-center relative",
                 isAura 
                   ? "w-14 h-14 rounded-full bg-[#B7B1F2] text-white shadow-xl shadow-[#B7B1F2]/30 border-[4px] border-white dark:border-zinc-950" 
                   : "p-1.5 rounded-xl",
@@ -68,6 +94,14 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
                   isAura ? "w-7 h-7" : "w-6 h-6",
                 )} />
                 
+                {/* Punto de Notificación (Aviso) */}
+                {hasNotification && !isActive && (
+                  <span className={cn(
+                    "absolute w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-950",
+                    isAura ? "top-1 right-1" : "top-0 right-0"
+                  )} />
+                )}
+
                 {isActive && !isAura && (
                   <motion.div 
                     layoutId="nav-dot"

@@ -7,25 +7,29 @@ import { useRouter } from "next/navigation";
 import { useRealtimeChat } from "../hooks/use-realtime-chat";
 import { ChatBubble } from "../components/chat-bubble";
 import { cn } from "@/lib/utils";
+import { markMessagesAsRead } from "@/app/actions/chat-actions";
 
 interface RealtimeChatViewProps {
   conversationId: number;
   title: string;
   subtitle?: string;
+  avatar?: string | null;
   userRole: 'user' | 'assistant';
 }
 
-export const RealtimeChatView = ({ conversationId, title, subtitle, userRole }: RealtimeChatViewProps) => {
+export const RealtimeChatView = ({ conversationId, title, subtitle, avatar, userRole }: RealtimeChatViewProps) => {
   const router = useRouter();
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { messages, isLoading, sendMessage } = useRealtimeChat(conversationId);
+  const { messages, isLoading, sendMessage } = useRealtimeChat(conversationId, userRole);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+    // Marcar como leído al entrar o recibir mensajes
+    markMessagesAsRead(conversationId);
+  }, [messages, conversationId]);
 
   const handleSend = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -35,7 +39,7 @@ export const RealtimeChatView = ({ conversationId, title, subtitle, userRole }: 
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#F8F9FE] dark:bg-slate-950 overflow-hidden">
+    <div className="flex flex-col h-full bg-[#F8F9FE] dark:bg-slate-950 overflow-hidden">
       {/* Header Minimalista y Elegante */}
       <header className="bg-white dark:bg-zinc-900 px-6 py-4 flex items-center gap-4 border-b border-zinc-100 dark:border-white/5 shadow-sm">
         <button 
@@ -45,8 +49,12 @@ export const RealtimeChatView = ({ conversationId, title, subtitle, userRole }: 
           <ArrowLeft className="w-5 h-5 text-zinc-500" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#B7B1F2] flex items-center justify-center text-white shadow-lg shadow-[#B7B1F2]/20">
-            <User className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-[#B7B1F2] flex items-center justify-center text-white shadow-lg shadow-[#B7B1F2]/20 overflow-hidden">
+            {avatar ? (
+              <img src={avatar} alt={title} className="w-full h-full object-cover" />
+            ) : (
+              <User className="w-5 h-5" />
+            )}
           </div>
           <div>
             <h1 className="text-sm font-black text-zinc-800 dark:text-white leading-tight uppercase tracking-tight">{title}</h1>

@@ -24,7 +24,7 @@ export const LoginView = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col p-8 bg-gradient-to-br from-[#E7E6FF] via-[#E8F6FF] to-[#E8FFF6] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="flex-1 h-full flex flex-col p-8 bg-gradient-to-br from-[#E7E6FF] via-[#E8F6FF] to-[#E8FFF6] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <header className="mb-12">
         <button 
           onClick={() => router.back()}
@@ -34,7 +34,7 @@ export const LoginView = () => {
         </button>
       </header>
 
-      <main className="flex-1 flex flex-col max-w-md mx-auto w-full">
+      <main className="flex-1 flex flex-col w-full">
         <div className="mb-10 text-center flex flex-col items-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}

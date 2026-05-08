@@ -1,18 +1,33 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import { RealtimeChatView } from "@/modules/chat/views/realtime-chat-view";
+import { getConversationDetails } from "@/app/actions/chat-actions";
 
 export default function SpecialistChatPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const conversationId = parseInt(resolvedParams.id);
+  const [details, setDetails] = useState<{title: string, subtitle: string, avatar?: string | null}>({
+    title: "Cargando...",
+    subtitle: "Iniciando chat...",
+    avatar: null
+  });
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      const data = await getConversationDetails(conversationId);
+      if (data) setDetails(data);
+    };
+    fetchDetails();
+  }, [conversationId]);
 
   return (
     <RealtimeChatView 
       conversationId={conversationId} 
-      title="Canal del Especialista"
-      subtitle="Chat Directo con Paciente"
-      userRole="assistant" // El psicólogo actúa como 'assistant' en la estructura de mensajes
+      title={details.title}
+      subtitle={details.subtitle}
+      avatar={details.avatar}
+      userRole="assistant" 
     />
   );
 }

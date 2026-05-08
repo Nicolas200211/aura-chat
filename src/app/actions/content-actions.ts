@@ -1,9 +1,10 @@
 "use server";
 
 import { db } from "@/db";
-import { exercises, specialists, journalEntries, appointments, profiles, userBadges, badges } from "@/db/schema";
-import { desc, eq, and, count, asc } from "drizzle-orm";
+import { exercises, specialists, journalEntries, appointments, profiles, userBadges, badges, systemUsers } from "@/db/schema";
+import { desc, eq, and, count, asc, sql as drizzleSql } from "drizzle-orm";
 import { createClient } from "@/lib/supabase-server";
+import { cookies } from "next/headers";
 
 // --- EJERCICIOS ---
 export async function getExercises() {
@@ -18,10 +19,24 @@ export async function getExercises() {
 // --- ESPECIALISTAS ---
 export async function getSpecialists() {
   try {
-    return await db.select()
+    const result = await db.select({
+      id: specialists.id,
+      userId: specialists.userId,
+      name: specialists.name,
+      specialty: specialists.specialty,
+      licenseNumber: specialists.licenseNumber,
+      verificationStatus: specialists.verificationStatus,
+      rating: specialists.rating,
+      price: specialists.price,
+      // Priorizar la foto del perfil real (URL), caer en la imagen de la tabla especialista si no hay perfil
+      image: drizzleSql<string>`COALESCE(${profiles.avatarUrl}, ${specialists.image})`,
+    })
       .from(specialists)
+      .leftJoin(profiles, eq(specialists.userId, profiles.id))
       .where(eq(specialists.verificationStatus, 'approved'))
       .orderBy(asc(specialists.name));
+
+    return result;
   } catch (error) {
     console.error("Error fetching specialists:", error);
     return [];
@@ -31,8 +46,7 @@ export async function getSpecialists() {
 // --- DIARIO ---
 export async function saveJournalEntry(title: string, content: string, mood: string) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error("Usuario no autenticado");
 
     return await db.insert(journalEntries).values({
@@ -49,8 +63,7 @@ export async function saveJournalEntry(title: string, content: string, mood: str
 
 export async function getJournalEntries() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) return [];
 
     return await db.select().from(journalEntries)
@@ -67,8 +80,7 @@ export async function getJournalEntries() {
 
 export async function deleteJournalEntry(id: number) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error("No autenticado");
 
     return await db.delete(journalEntries)
@@ -81,8 +93,7 @@ export async function deleteJournalEntry(id: number) {
 
 export async function updateJournalEntry(id: number, title: string, content: string, mood: string) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error("No autenticado");
 
     return await db.update(journalEntries)
@@ -98,8 +109,7 @@ export async function updateJournalEntry(id: number, title: string, content: str
 // --- CITAS ---
 export async function getAppointments() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) return [];
 
     return await db.select({
@@ -125,8 +135,7 @@ export async function getAppointments() {
 
 export async function saveAppointment(specialistId: number, date: string, time: string) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error("No autenticado");
 
     return await db.insert(appointments).values({
@@ -144,8 +153,7 @@ export async function saveAppointment(specialistId: number, date: string, time: 
 
 export async function deleteAppointment(appointmentId: number) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error("No autenticado");
 
     return await db.delete(appointments)
@@ -157,16 +165,57 @@ export async function deleteAppointment(appointmentId: number) {
 }
 
 // --- PERFIL ---
-export async function getMyProfile() {
+export async function getAuthenticatedUser() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    if (user) {
+      return { 
+        id: user.id, 
+        email: user.email, 
+        role: user.user_metadata?.role || 'usuario',
+        fullName: user.user_metadata?.full_name || 'Usuario'
+      };
+    }
 
+    const cookieStore = await cookies();
+    const session = cookieStore.get("aura-session");
+    if (session) {
+      const data = JSON.parse(session.value);
+      return { id: data.id, email: data.email, role: data.role, fullName: data.name };
+    }
+  } catch (error) {
+    // Silently ignore session parsing errors
+  }
+  return null;
+}
+
+export async function getMyProfile() {
+  try {
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) return null;
+
+    // 1. Intentamos buscar en profiles (Supabase)
     const result = await db.select().from(profiles)
-      .where(eq(profiles.id, user.id));
+      .where(eq(profiles.id, authUser.id));
     
-    return result[0] || null;
+    if (result.length > 0) {
+      return {
+        ...result[0],
+        email: authUser.email
+      };
+    }
+
+
+    // 2. Si no está en profiles pero tenemos datos de authUser, devolvemos un perfil de respaldo
+    return {
+      id: authUser.id,
+      fullName: authUser.fullName || (authUser.role === 'psicologo' ? 'Especialista' : 'Usuario'),
+      email: authUser.email,
+      role: authUser.role || 'usuario',
+      avatarUrl: null,
+      updatedAt: new Date()
+    };
   } catch (error: unknown) {
     if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
       throw error;
@@ -178,12 +227,11 @@ export async function getMyProfile() {
 
 export async function getSpecialistProfile() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) return null;
 
     const result = await db.select().from(specialists)
-      .where(eq(specialists.userId, user.id));
+      .where(eq(specialists.userId, authUser.id));
     
     return result[0] || null;
   } catch (error: unknown) {
@@ -197,15 +245,27 @@ export async function getSpecialistProfile() {
 
 export async function updateProfile(data: { fullName?: string, avatarUrl?: string }) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("No autenticado");
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) throw new Error("No autenticado");
 
+    // 1. Intentamos actualizar systemUsers si es un usuario custom
+    try {
+      await db.update(systemUsers)
+        .set({
+          fullName: data.fullName,
+        })
+        .where(eq(systemUsers.id, authUser.id));
+    } catch(e) {
+      // Ignorar si el usuario no existe en systemUsers (ej. si es solo de Supabase Auth)
+    }
+
+    // 2. Siempre intentamos actualizar la tabla profiles (que es la vista general)
     return await db.insert(profiles)
       .values({
-        id: user.id,
+        id: authUser.id,
         fullName: data.fullName,
         avatarUrl: data.avatarUrl,
+        role: authUser.role || 'usuario'
       })
       .onConflictDoUpdate({
         target: profiles.id,
@@ -224,11 +284,10 @@ export async function updateProfile(data: { fullName?: string, avatarUrl?: strin
 
 export async function updateSpecialistProfile(data: { specialty?: string, licenseNumber?: string, price?: string }) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("No autenticado");
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) throw new Error("No autenticado");
 
-    const spec = await db.select().from(specialists).where(eq(specialists.userId, user.id)).limit(1);
+    const spec = await db.select().from(specialists).where(eq(specialists.userId, authUser.id)).limit(1);
     if (!spec.length) throw new Error("No eres especialista");
 
     const updateData: any = {};
@@ -253,12 +312,11 @@ export async function updateSpecialistProfile(data: { specialty?: string, licens
 // --- ESTADÍSTICAS ---
 export async function getDashboardStats() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) return null;
 
     const entries = await db.select().from(journalEntries)
-      .where(eq(journalEntries.userId, user.id))
+      .where(eq(journalEntries.userId, authUser.id))
       .orderBy(desc(journalEntries.createdAt));
 
     const moodValues: Record<string, number> = {
@@ -356,11 +414,10 @@ export async function getProfileStats() {
 
 export async function getSpecialistStats() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { sessions: 0, rating: "0.0", streak: 0 };
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) return { sessions: 0, rating: "0.0", streak: 0 };
 
-    const spec = await db.select().from(specialists).where(eq(specialists.userId, user.id)).limit(1);
+    const spec = await db.select().from(specialists).where(eq(specialists.userId, authUser.id)).limit(1);
     if (!spec.length) return { sessions: 0, rating: "0.0", streak: 0 };
 
     const allAppointments = await db.select()
@@ -403,13 +460,12 @@ export async function getSpecialistStats() {
 
 export async function getPsychologistPatients() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) return [];
 
     // 1. Buscamos el ID de especialista del usuario actual
     const specialist = await db.select().from(specialists)
-      .where(eq(specialists.userId, user.id));
+      .where(eq(specialists.userId, authUser.id));
     
     if (!specialist.length) return [];
 
@@ -429,27 +485,21 @@ export async function getPsychologistPatients() {
     .orderBy(desc(appointments.createdAt));
 
     // Filtrar para tener pacientes únicos (el último registro de cada uno)
-    const uniquePatients = Array.from(new Map(patients.map(p => [p.id, p])).values());
-
-    return uniquePatients;
+    return Array.from(new Map(patients.filter(p => p.id).map(p => [p.id, p])).values());
   } catch (error: unknown) {
-    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
-      throw error;
-    }
-    console.error("Error fetching psychologist patients:", error);
+    console.error("DEBUG: Error en getPsychologistPatients:", error);
     return [];
   }
 }
 
 export async function getSpecialistAppointments() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) return [];
 
     // 1. Buscamos el ID de especialista del usuario actual
     const specialist = await db.select().from(specialists)
-      .where(eq(specialists.userId, user.id));
+      .where(eq(specialists.userId, authUser.id));
     
     if (!specialist.length) return [];
 
@@ -469,10 +519,7 @@ export async function getSpecialistAppointments() {
     .where(eq(appointments.specialistId, specId))
     .orderBy(desc(appointments.createdAt));
   } catch (error: unknown) {
-    if (typeof error === "object" && error !== null && "digest" in error && error.digest === "DYNAMIC_SERVER_USAGE") {
-      throw error;
-    }
-    console.error("Error fetching specialist appointments:", error);
+    console.error("DEBUG: Error en getSpecialistAppointments:", error);
     return [];
   }
 }

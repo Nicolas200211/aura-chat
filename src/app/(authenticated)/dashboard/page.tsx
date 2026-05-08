@@ -1,5 +1,6 @@
 import { DashboardView } from "@/modules/dashboard/views/dashboard-view";
 import { PsychologistDashboardView } from "@/modules/dashboard/views/psychologist-dashboard-view";
+import { AdminHomeView } from "@/modules/admin/views/admin-home-view";
 import { getMyProfile } from "@/app/actions/content-actions";
 import { Metadata } from "next";
 
@@ -13,6 +14,10 @@ export default async function DashboardPage() {
 
   if (profile?.role === "psicologo") {
     return <PsychologistDashboardView />;
+  }
+
+  if (profile?.role === "admin") {
+    return <AdminHomeView />;
   }
 
   return <DashboardView />;

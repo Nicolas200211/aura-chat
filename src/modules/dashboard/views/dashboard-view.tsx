@@ -21,6 +21,7 @@ import {
   CartesianGrid
 } from "recharts";
 import { getMyProfile, getDashboardStats } from "@/app/actions/content-actions";
+import { getUnreadMessagesCount } from "@/app/actions/chat-actions";
 import { InstallPWA } from "@/components/install-pwa";
 
 export const DashboardView = () => {
@@ -31,29 +32,29 @@ export const DashboardView = () => {
   const [fullStats, setFullStats] = useState<any>(null);
   const [selectedMood, setSelectedMood] = useState<"feliz" | "triste" | "ansioso">("feliz");
   const [isLoading, setIsLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const profile = await getMyProfile();
+      if (!profile) {
         router.push("/auth/login");
         return;
       }
 
-      const profile = await getMyProfile();
-      if (profile) {
-        setUserName(profile.fullName || user.email?.split('@')[0] || "Usuario");
-        setAvatarUrl(profile.avatarUrl || "");
-        setRole(profile.role || "usuario");
-      } else {
-        setUserName(user.email?.split('@')[0] || "Usuario");
-      }
+      setUserName(profile.fullName || "Usuario");
+      setAvatarUrl(profile.avatarUrl || "");
+      setRole(profile.role || "usuario");
 
       const dashboardStats = await getDashboardStats();
       if (dashboardStats) {
         setFullStats(dashboardStats);
       }
+      
+      const count = await getUnreadMessagesCount();
+      setUnreadCount(count);
+
       setIsLoading(false);
     };
     loadData();
@@ -76,7 +77,7 @@ export const DashboardView = () => {
   const chartColor = moodColors[selectedMood];
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 max-w-md mx-auto overflow-x-hidden overflow-y-auto scroll-smooth no-scrollbar">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 w-full overflow-x-hidden overflow-y-auto scroll-smooth no-scrollbar">
       <header className="flex justify-between items-start mb-8 pt-6 px-1">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -94,8 +95,11 @@ export const DashboardView = () => {
             </Link>
           )}
           <Link href="/chat/inbox">
-            <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-white/5 flex items-center justify-center text-[#B7B1F2] shadow-sm active:scale-90 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-white/5 flex items-center justify-center text-[#B7B1F2] shadow-sm active:scale-90 transition-transform relative">
               <MessageSquare className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-900 animate-pulse" />
+              )}
             </div>
           </Link>
           <InstallPWA />

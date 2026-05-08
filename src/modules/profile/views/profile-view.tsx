@@ -24,12 +24,11 @@ export const ProfileView = () => {
   const [specData, setSpecData] = useState({ specialty: "", licenseNumber: "", price: "", status: "" });
 
   const loadProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setUserEmail(user.email || "");
+    try {
       const profile = await getMyProfile();
       if (profile) {
         setUserName(profile.fullName || "");
+        setUserEmail((profile as any).email || "");
         setAvatarUrl(profile.avatarUrl || "");
         setRole(profile.role || "usuario");
         setNewName(profile.fullName || "");
@@ -42,7 +41,7 @@ export const ProfileView = () => {
             getSpecialistStats(),
             getSpecialistProfile()
           ]);
-          setStats({ ...profileStats, ...specStats });
+          if (specStats) setStats({ ...profileStats, ...specStats });
           if (specialistInfo) {
             setSpecData({
               specialty: specialistInfo.specialty || "",
@@ -52,13 +51,15 @@ export const ProfileView = () => {
             });
           }
         } else {
-          setStats({ ...stats, ...profileStats });
+          setStats((prev) => ({ ...prev, ...profileStats }));
         }
       } else {
-        const fallbackName = user.email?.split("@")[0] || "Usuario Aura";
-        setUserName(fallbackName);
-        setNewName(fallbackName);
+        // Fallback robusto basado en el rol
+        setUserName(role === 'psicologo' ? "Especialista" : "Usuario");
       }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+      setUserName("Usuario");
     }
   };
 
@@ -91,7 +92,7 @@ export const ProfileView = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 text-zinc-400 font-sans p-6 selection:bg-[#B7B1F2]/30 overflow-y-auto scroll-smooth no-scrollbar">
+    <div className="flex-1 overflow-y-auto scroll-smooth no-scrollbar p-6 pt-2">
       <header className="mb-10 pt-8 flex flex-col items-center">
         <div className="relative group cursor-pointer" onClick={() => setIsEditing(true)}>
           <motion.div 
@@ -129,60 +130,62 @@ export const ProfileView = () => {
         </div>
       </header>
 
-      {/* Bento Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <motion.div 
-          whileHover={{ y: -4 }}
-          className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-[#B7B1F2]/20"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-3">
-            <Award className="w-6 h-6 text-amber-500" />
-          </div>
-          <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Insignias</p>
-          <p className="text-2xl font-mono font-black text-zinc-800 dark:text-white">{stats.badges.toString().padStart(2, '0')}</p>
-        </motion.div>
+      {/* Bento Stats Grid (Oculto para Admin) */}
+      {role !== "admin" && (
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <motion.div 
+            whileHover={{ y: -4 }}
+            className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-[#B7B1F2]/20"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-3">
+              <Award className="w-6 h-6 text-amber-500" />
+            </div>
+            <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Insignias</p>
+            <p className="text-2xl font-mono font-black text-zinc-800 dark:text-white">{stats.badges.toString().padStart(2, '0')}</p>
+          </motion.div>
 
-        <motion.div 
-          whileHover={{ y: -4 }}
-          className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-[#A7E6D7]/20"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-3">
-            <Zap className="w-6 h-6 text-emerald-500" />
-          </div>
-          <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Racha</p>
-          <div className="flex items-baseline gap-1">
-            <p className="text-2xl font-mono font-black text-zinc-800 dark:text-white">{stats.streak}</p>
-            <span className="text-[10px] font-mono text-emerald-500 font-bold uppercase">Días</span>
-          </div>
-        </motion.div>
+          <motion.div 
+            whileHover={{ y: -4 }}
+            className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-[#A7E6D7]/20"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-3">
+              <Zap className="w-6 h-6 text-emerald-500" />
+            </div>
+            <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Racha</p>
+            <div className="flex items-baseline gap-1">
+              <p className="text-2xl font-mono font-black text-zinc-800 dark:text-white">{stats.streak}</p>
+              <span className="text-[10px] font-mono text-emerald-500 font-bold uppercase">Días</span>
+            </div>
+          </motion.div>
 
-        {/* MÉTRIAS PROFESIONALES (Solo Psicólogo) */}
-        {role === "psicologo" && (
-          <>
-            <motion.div 
-              whileHover={{ y: -4 }}
-              className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-[#928EFF]/20"
-            >
-              <div className="w-10 h-10 rounded-2xl bg-[#928EFF]/10 flex items-center justify-center mb-3">
-                <ShieldCheck className="w-6 h-6 text-[#928EFF]" />
-              </div>
-              <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Sesiones</p>
-              <p className="text-2xl font-mono font-black text-zinc-800 dark:text-white">{stats.sessions.toString().padStart(2, '0')}</p>
-            </motion.div>
+          {/* MÉTRIAS PROFESIONALES (Solo Psicólogo) */}
+          {role === "psicologo" && (
+            <>
+              <motion.div 
+                whileHover={{ y: -4 }}
+                className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-[#928EFF]/20"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-[#928EFF]/10 flex items-center justify-center mb-3">
+                  <ShieldCheck className="w-6 h-6 text-[#928EFF]" />
+                </div>
+                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Sesiones</p>
+                <p className="text-2xl font-mono font-black text-zinc-800 dark:text-white">{stats.sessions.toString().padStart(2, '0')}</p>
+              </motion.div>
 
-            <motion.div 
-              whileHover={{ y: -4 }}
-              className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-amber-400/20"
-            >
-              <div className="w-10 h-10 rounded-2xl bg-amber-400/10 flex items-center justify-center mb-3">
-                <Star className="w-6 h-6 text-amber-400" />
-              </div>
+              <motion.div 
+                whileHover={{ y: -4 }}
+                className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-100 dark:border-white/5 text-center flex flex-col items-center justify-center transition-all duration-300 hover:border-amber-400/20"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-amber-400/10 flex items-center justify-center mb-3">
+                  <Star className="w-6 h-6 text-amber-400" />
+                </div>
               <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Rating</p>
               <p className="text-2xl font-mono font-black text-zinc-800 dark:text-white">{stats.rating}</p>
             </motion.div>
           </>
         )}
       </div>
+      )}
 
       {/* Security Banner Bento */}
       <div className="bg-[#B7B1F2]/5 p-4 rounded-2xl border border-[#B7B1F2]/10 flex items-center gap-4 mb-8">
@@ -207,9 +210,9 @@ export const ProfileView = () => {
       <motion.button 
         whileTap={{ scale: 0.98 }}
         onClick={handleLogout}
-        className="w-full bg-rose-500/10 dark:bg-rose-500/5 text-rose-500 py-5 rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-rose-500/20 transition-all border border-rose-500/10 shadow-lg shadow-rose-500/5"
+        className="w-full bg-rose-500/5 dark:bg-rose-500/10 text-rose-500 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-rose-500/20 transition-all border border-rose-500/20 shadow-sm mb-12"
       >
-        <LogOut className="w-5 h-5" />
+        <LogOut className="w-4 h-4" />
         Cerrar Sesión
       </motion.button>
 

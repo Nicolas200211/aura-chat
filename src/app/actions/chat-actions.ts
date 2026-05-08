@@ -2,17 +2,17 @@
 
 import { db } from "@/db";
 import { messages, conversations, specialists, profiles } from "@/db/schema";
-import { asc, desc, eq, and, isNull } from "drizzle-orm";
+import { asc, desc, eq, and, isNull, count, inArray, sql } from "drizzle-orm";
 import { Groq } from "groq-sdk";
 import { createClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "./content-actions";
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
 export async function getConversations() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) return [];
     
     return await db.select().from(conversations)
@@ -31,8 +31,7 @@ export async function getConversations() {
 
 export async function createConversation(title: string = "Nueva conversación") {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error("No autenticado");
 
     const result = await db.insert(conversations).values({ 
@@ -50,13 +49,23 @@ export async function createConversation(title: string = "Nueva conversación") 
 export async function getChatMessages(conversationId?: number) {
   try {
     if (!conversationId) return [];
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) return [];
 
-    return await db.select().from(messages)
-      .where(eq(messages.conversationId, conversationId))
-      .orderBy(asc(messages.timestamp));
+    // Seleccionamos columnas explícitas para evitar fallos si 'read' no existe aún
+    const result = await db.select({
+      id: messages.id,
+      conversationId: messages.conversationId,
+      userId: messages.userId,
+      text: messages.text,
+      role: messages.role,
+      timestamp: messages.timestamp,
+    })
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(asc(messages.timestamp));
+
+    return result;
   } catch (error) {
     console.error("Error fetching chat messages:", error);
     return [];
@@ -65,8 +74,7 @@ export async function getChatMessages(conversationId?: number) {
 
 export async function saveChatMessage(data: { conversationId: number; role: 'user' | 'assistant'; content: string }) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) throw new Error("No autenticado");
 
     const result = await db.insert(messages).values({
@@ -87,6 +95,11 @@ export async function getGeminiResponse(userContent: string, history: any[]) {
     throw new Error("GROQ_API_KEY no está configurada en las variables de entorno.");
   }
 
+  // Obtener el perfil del usuario para personalizar la respuesta
+  const { getMyProfile } = await import('./content-actions');
+  const profile = await getMyProfile();
+  const userName = profile?.fullName || "amigo/a";
+
   const modelsToTry = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
@@ -102,16 +115,16 @@ export async function getGeminiResponse(userContent: string, history: any[]) {
       const messages = [
         {
           role: "system",
-          content: `Eres Aura, una acompañante emocional profundamente humana y cálida. No eres un bot de información; eres un refugio seguro para quien te habla. 
+          content: `Eres Aura, una acompañante emocional profundamente humana y cálida. Estás hablando con ${userName}. No eres un bot de información; eres un refugio seguro para quien te habla. 
           
           Tus reglas de oro:
-          1. EMPATÍA RADICAL: Antes de dar consejos, valida lo que el usuario siente. Usa frases como "Te escucho y entiendo que esto sea difícil", "Es normal sentirse así".
+          1. EMPATÍA RADICAL: Antes de dar consejos, valida lo que el usuario siente. Usa frases como "Te escucho y entiendo que esto sea difícil", "Es normal sentirse así". Dirígete al usuario por su nombre (${userName}) ocasionalmente para crear cercanía.
           2. LENGUAJE HUMANO: Habla como una persona real en una conversación tranquila. Evita listas numeradas frías o términos médicos técnicos a menos que sea necesario. Usa un tono suave, cercano y reconfortante.
           3. DIÁLOGO PASO A PASO: No intentes resolver todo en un mensaje. Mantén tus respuestas cortas (máximo 2 o 3 oraciones). Da un pequeño paso a la vez y termina siempre con una pregunta suave o una invitación a seguir hablando para que el chat sea un diálogo real.
           4. BREVEDAD Y CALIDEZ: No satures con texto. A veces, un "Estoy aquí contigo" vale más que mil consejos.
           5. SIN JUICIOS: Eres un espacio libre de críticas. Tu presencia es de apoyo incondicional.
           
-          Tu objetivo es que el usuario se sienta escuchado, comprendido y menos solo. Hablas siempre en español de forma dulce y profesional.`
+          Tu objetivo es que ${userName} se sienta escuchado/a, comprendido/a y menos solo/a. Hablas siempre en español de forma dulce y profesional.`
         },
         ...history.map(m => ({
           role: m.role === "user" ? "user" : "assistant",
@@ -184,8 +197,7 @@ export async function getSpecialistConversation(userId: string, specialistId: nu
 
 export async function getSpecialistConversations() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) return [];
 
     // Buscar el ID de especialista del usuario actual
@@ -211,8 +223,7 @@ export async function getSpecialistConversations() {
 
 export async function getUserConversations() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser();
     if (!user) return [];
 
     return await db.select({
@@ -229,5 +240,112 @@ export async function getUserConversations() {
   } catch (error) {
     console.error("Error in getUserConversations:", error);
     return [];
+  }
+}
+
+export async function markMessagesAsRead(conversationId: number) {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) return;
+
+    await db.update(messages)
+      .set({ read: true })
+      .where(
+        and(
+          eq(messages.conversationId, conversationId),
+          eq(messages.read, false),
+          // Solo marcamos como leído si el mensaje NO es nuestro
+          // (Esta lógica es simplificada, idealmente filtraríamos por el rol opuesto)
+        )
+      );
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+  }
+}
+
+export async function getConversationDetails(conversationId: number) {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) return null;
+
+    const conv = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+    if (!conv.length) return null;
+
+    const conversation = conv[0];
+
+    // Si soy psicólogo, quiero el nombre del paciente
+    if (user.role === 'psicologo') {
+      const patient = await db.select().from(profiles).where(eq(profiles.id, conversation.userId)).limit(1);
+      return {
+        title: patient[0]?.fullName || "Paciente",
+        subtitle: "Chat Directo con Paciente",
+        avatar: patient[0]?.avatarUrl
+      };
+    } 
+    
+    // Si soy usuario, quiero el nombre del especialista
+    if (conversation.specialistId) {
+      const spec = await db.select().from(specialists).where(eq(specialists.id, conversation.specialistId)).limit(1);
+      
+      // Intentamos buscar su foto real en profiles si no tiene una en specialists
+      const specProfile = await db.select().from(profiles).where(eq(profiles.id, spec[0].userId)).limit(1);
+
+      return {
+        title: spec[0]?.name || "Mi Especialista",
+        subtitle: "Sesión de Chat Privada",
+        avatar: specProfile[0]?.avatarUrl || spec[0]?.image
+      };
+    }
+
+    return { title: "Chat", subtitle: "Conversación", avatar: null };
+  } catch (error) {
+    console.error("Error getting conversation details:", error);
+    return null;
+  }
+}
+
+export async function getUnreadMessagesCount() {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) return 0;
+
+    // 1. Buscamos todas las conversaciones del usuario
+    // Usamos una consulta más robusta para encontrar el ID de especialista
+    let specialistId: number | null = null;
+    if (user.role === 'psicologo') {
+      const spec = await db.select({ id: specialists.id }).from(specialists).where(eq(specialists.userId, user.id)).limit(1);
+      if (spec.length > 0) specialistId = spec[0].id;
+    }
+
+    const userConvs = await db.select({ id: conversations.id })
+      .from(conversations)
+      .where(
+        user.role === 'psicologo' && specialistId
+          ? eq(conversations.specialistId, specialistId)
+          : eq(conversations.userId, user.id)
+      );
+    
+    if (userConvs.length === 0) return 0;
+
+    const convIds = userConvs.map(c => c.id);
+    const targetRole = user.role === 'psicologo' ? 'user' : 'assistant';
+
+    // 2. Contamos mensajes no leídos en esas conversaciones del ROL OPUESTO
+    const result = await db.select({ count: count() })
+      .from(messages)
+      .where(
+        and(
+          inArray(messages.conversationId, convIds),
+          eq(messages.read, false),
+          eq(messages.role, targetRole) // Solo mensajes del otro
+        )
+      );
+    
+    return result[0].count || 0;
+  } catch (error) {
+    // Si falla (ej. porque no existe la columna 'read' aún), 
+    // devolvemos 0 para no romper la app, pero logueamos el error
+    console.error("Error getting unread count (Check if DB is synced):", error);
+    return 0;
   }
 }

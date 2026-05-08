@@ -106,7 +106,7 @@ export const DiaryView = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 max-w-md mx-auto overflow-x-hidden overflow-y-auto scroll-smooth no-scrollbar">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FE] dark:bg-slate-950 text-zinc-400 font-sans p-5 w-full overflow-x-hidden overflow-y-auto scroll-smooth no-scrollbar">
       <header className="mb-8 pt-6 flex justify-between items-end px-1">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
