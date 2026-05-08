@@ -6,7 +6,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { getUnreadMessagesCount } from "@/app/actions/chat-actions";
+import { getChatMessages, saveChatMessage, markMessagesAsRead, getConversationDetails, getUnreadMessagesCount } from "@/app/actions/chat-actions";
+import { supabase } from "@/lib/supabase";
 
 interface BottomNavProps {
   role?: string;
@@ -42,10 +43,20 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
       const count = await getUnreadMessagesCount();
       setUnreadCount(count);
     };
+    
     checkUnread();
-    // Revisar cada 10 segundos para mayor fluidez
-    const interval = setInterval(checkUnread, 10000);
-    return () => clearInterval(interval);
+
+    // Suscribirse a notificaciones en tiempo real
+    const channel = supabase
+      .channel('notifications:global')
+      .on('broadcast', { event: 'new-notification' }, () => {
+        checkUnread(); // Recargar el conteo al recibir aviso
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [pathname]);
   
   const navItems = role === "psicologo" 

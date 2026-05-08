@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Message } from "../interfaces/message.interface";
-import { getChatMessages, saveChatMessage, markMessagesAsRead } from "@/app/actions/chat-actions";
+import { getChatMessages, saveChatMessage, markMessagesAsRead, getConversationDetails } from "@/app/actions/chat-actions";
 
 export function useRealtimeChat(conversationId: number | null, currentUserRole: 'user' | 'assistant' = 'user') {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -87,12 +87,24 @@ export function useRealtimeChat(conversationId: number | null, currentUserRole: 
       payload: { message: newMsg }
     });
 
-    // 3. Persistencia en DB (Para que no se borre al recargar)
+    // 3. Persistencia en DB y Notificación Global
     try {
-      await saveChatMessage({
+      const saved = await saveChatMessage({
         conversationId,
         role,
         content
+      });
+
+      // Notificar al destinatario vía canal global si tenemos su ID
+      // Buscamos quién debe recibir la notificación (el otro en la conversación)
+      const details = await getConversationDetails(conversationId);
+      // Aquí necesitaríamos el userId real del otro, pero para simplificar
+      // usaremos el canal de la conversación para notificar globalmente a los que escuchen
+      const globalChannel = supabase.channel(`notifications:global`);
+      globalChannel.send({
+        type: 'broadcast',
+        event: 'new-notification',
+        payload: { conversationId }
       });
     } catch (error) {
       console.error("Error guardando en DB:", error);

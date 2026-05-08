@@ -57,7 +57,21 @@ export const DashboardView = () => {
 
       setIsLoading(false);
     };
+    
     loadData();
+
+    // Suscribirse a notificaciones en tiempo real
+    const channel = supabase
+      .channel('notifications:dashboard')
+      .on('broadcast', { event: 'new-notification' }, async () => {
+        const count = await getUnreadMessagesCount();
+        setUnreadCount(count);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [router]);
 
   if (isLoading || !fullStats) {

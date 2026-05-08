@@ -139,7 +139,21 @@ export const PsychologistDashboardView = () => {
         setIsLoading(false);
       }
     };
+    
     loadData();
+
+    // Suscribirse a notificaciones en tiempo real
+    const channel = supabase
+      .channel('notifications:psychologist')
+      .on('broadcast', { event: 'new-notification' }, async () => {
+        const count = await getUnreadMessagesCount();
+        setUnreadCount(count);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [router]);
 
   const handleChat = async (patientId: string, specialistId: number) => {
