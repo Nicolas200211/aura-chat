@@ -245,6 +245,8 @@ export async function getUserConversations() {
 
 export async function markMessagesAsRead(conversationId: number) {
   try {
+    if (!conversationId || isNaN(conversationId)) return;
+
     const user = await getAuthenticatedUser();
     if (!user) return;
 
@@ -253,13 +255,13 @@ export async function markMessagesAsRead(conversationId: number) {
       .where(
         and(
           eq(messages.conversationId, conversationId),
-          eq(messages.read, false),
-          // Solo marcamos como leído si el mensaje NO es nuestro
-          // (Esta lógica es simplificada, idealmente filtraríamos por el rol opuesto)
+          eq(messages.read, false)
         )
       );
   } catch (error) {
-    console.error("Error marking messages as read:", error);
+    // Si falla (ej. la columna 'read' no existe o DB saturada), ignoramos el error
+    // para que la experiencia de chat no se interrumpa.
+    console.error("Silent error marking messages as read:", error);
   }
 }
 
@@ -267,6 +269,8 @@ export async function getConversationDetails(conversationId: number) {
   try {
     const user = await getAuthenticatedUser();
     if (!user) return null;
+
+    if (!conversationId || isNaN(conversationId)) return null;
 
     const conv = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
     if (!conv.length) return null;
