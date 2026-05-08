@@ -324,28 +324,28 @@ export async function getUnreadMessagesCount() {
     const userConvs = await db.select({ id: conversations.id })
       .from(conversations)
       .where(
-        user.role === 'psicologo' && specialistId
-          ? eq(conversations.specialistId, specialistId)
+        specialistId 
+          ? sql`${conversations.specialistId} = ${specialistId} OR ${conversations.userId} = ${user.id}`
           : eq(conversations.userId, user.id)
       );
     
     if (userConvs.length === 0) return 0;
 
     const convIds = userConvs.map(c => c.id);
+    // Para un psicólogo, el target es 'user' (paciente). Para un usuario, es 'assistant' (especialista).
     const targetRole = user.role === 'psicologo' ? 'user' : 'assistant';
 
-    // 2. Contamos mensajes no leídos en esas conversaciones del ROL OPUESTO
     const result = await db.select({ count: count() })
       .from(messages)
       .where(
         and(
           inArray(messages.conversationId, convIds),
           eq(messages.read, false),
-          eq(messages.role, targetRole) // Solo mensajes del otro
+          eq(messages.role, targetRole)
         )
       );
     
-    return result[0].count || 0;
+    return Number(result[0].count) || 0;
   } catch (error) {
     // Si falla (ej. porque no existe la columna 'read' aún), 
     // devolvemos 0 para no romper la app, pero logueamos el error
