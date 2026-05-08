@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Message } from "../interfaces/message.interface";
-import { getChatMessages, saveChatMessage } from "@/app/actions/chat-actions";
+import { getChatMessages, saveChatMessage, markMessagesAsRead } from "@/app/actions/chat-actions";
 
 export function useRealtimeChat(conversationId: number | null, currentUserRole: 'user' | 'assistant' = 'user') {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -25,40 +25,37 @@ export function useRealtimeChat(conversationId: number | null, currentUserRole: 
 
     loadInitialMessages();
 
-    // 2. Configurar WebSockets (Supabase Realtime Channel)
+    // 2. Configurar WebSockets Directos (Broadcast)
     const channel = supabase
-      .channel(`chat:${conversationId}`)
+      .channel(`chat:${conversationId}`, {
+        config: {
+          broadcast: { self: false } // No recibir mis propios mensajes
+        }
+      })
       .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "mensajes",
-          filter: `ID de conversación=eq.${conversationId}`
-        },
+        "broadcast",
+        { event: "new-message" },
         (payload: any) => {
-          const newMsg = payload.new;
+          const { message } = payload;
           
-          // Reproducir sonido si el mensaje es de la otra persona
-          if (newMsg.role !== currentUserRole) {
-            try {
-              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
-              audio.volume = 0.5;
-              audio.play().catch(() => {}); // Ignorar errores si el navegador bloquea autoplay
-            } catch (e) {}
-          }
+          // Reproducir sonido
+          try {
+            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+            audio.volume = 0.5;
+            audio.play().catch(() => {});
+          } catch (e) {}
 
-          // Evitar duplicados locales
+          // Actualizar UI
           setMessages((current) => {
-            if (current.some(m => m.id === newMsg.id.toString())) return current;
-            
+            if (current.some(m => m.id === message.id)) return current;
             return [...current, {
-              id: newMsg.id.toString(),
-              role: newMsg.role,
-              content: newMsg.texto,
-              timestamp: new Date(newMsg['marca de tiempo'])
+              ...message,
+              timestamp: new Date(message.timestamp)
             }];
           });
+          
+          // Marcar como leído en DB (en segundo plano)
+          markMessagesAsRead(conversationId);
         }
       )
       .subscribe();
@@ -71,25 +68,34 @@ export function useRealtimeChat(conversationId: number | null, currentUserRole: 
   const sendMessage = async (content: string, role: 'user' | 'assistant' = 'user') => {
     if (!content.trim() || !conversationId) return;
 
-    // Optimistic Update
-    const optimisticMsg: Message = {
-      id: `temp-${Date.now()}`,
+    const messageId = `msg-${Date.now()}`;
+    const newMsg: Message = {
+      id: messageId,
       role,
       content,
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, optimisticMsg]);
 
+    // 1. Optimistic Update (Yo lo veo al instante)
+    setMessages(prev => [...prev, newMsg]);
+
+    // 2. Broadcast vía WebSocket (El otro lo ve al instante)
+    const channel = supabase.channel(`chat:${conversationId}`);
+    channel.send({
+      type: 'broadcast',
+      event: 'new-message',
+      payload: { message: newMsg }
+    });
+
+    // 3. Persistencia en DB (Para que no se borre al recargar)
     try {
       await saveChatMessage({
         conversationId,
         role,
         content
       });
-      // El mensaje real llegará vía WebSocket y reemplazará/completará la UI
     } catch (error) {
-      console.error("Error enviando mensaje real:", error);
-      // Podríamos eliminar el mensaje optimista aquí si falla
+      console.error("Error guardando en DB:", error);
     }
   };
 

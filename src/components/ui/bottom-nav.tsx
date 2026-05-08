@@ -71,7 +71,7 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
         {navItems.map((item) => {
           const isActive = pathname === item.path;
           const isAura = item.id === "CHAT";
-          const hasNotification = unreadCount > 0 && (item.id === "PATS" || item.id === "THER" || item.id === "CHAT");
+          const hasNotification = unreadCount > 0 && (item.id === "PATS" || item.id === "THER");
           
           return (
             <Link 
