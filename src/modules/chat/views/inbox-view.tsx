@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, ArrowLeft, User, ChevronRight, Loader2, Sparkles } from "lucide-react";
+import { MessageSquare, ArrowLeft, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getUserConversations, getSpecialistConversations, getUnreadCountsPerConversation } from "@/app/actions/chat-actions";
 import { getMyProfile } from "@/app/actions/content-actions";
@@ -107,6 +107,9 @@ export const InboxView = () => {
           {conversations.length > 0 ? (
             conversations.map((conv, i) => {
               const unread = unreadCounts[conv.id] ?? 0;
+              const displayName = conv.specialistName || conv.patientName || "?";
+              const avatarSrc = conv.specialistImage || conv.specialistAvatarUrl || conv.patientAvatar;
+              const initials = displayName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
               return (
                 <motion.div
                   key={conv.id}
@@ -123,11 +126,20 @@ export const InboxView = () => {
                   )}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-slate-950 border border-zinc-100 dark:border-white/10 flex items-center justify-center overflow-hidden">
-                      {(conv.specialistImage || conv.patientAvatar) ? (
-                        <img src={conv.specialistImage || conv.patientAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    <div className="relative w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0">
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          alt={displayName}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <User className="w-6 h-6 text-zinc-300" />
+                        <div className="w-full h-full bg-[#B7B1F2]/20 flex items-center justify-center">
+                          <span className="text-sm font-black text-[#B7B1F2]">{initials}</span>
+                        </div>
+                      )}
+                      {unread > 0 && (
+                        <span className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-900" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">

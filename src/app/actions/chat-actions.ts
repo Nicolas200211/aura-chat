@@ -231,10 +231,12 @@ export async function getUserConversations() {
       title: conversations.title,
       createdAt: conversations.createdAt,
       specialistName: specialists.name,
-      specialistImage: specialists.image
+      specialistImage: specialists.image,
+      specialistAvatarUrl: profiles.avatarUrl,   // foto del perfil como respaldo
     })
     .from(conversations)
     .innerJoin(specialists, eq(conversations.specialistId, specialists.id))
+    .leftJoin(profiles, eq(specialists.userId, profiles.id))
     .where(eq(conversations.userId, user.id))
     .orderBy(desc(conversations.createdAt));
   } catch (error) {
