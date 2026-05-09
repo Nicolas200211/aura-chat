@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Star, MessageCircle, Calendar, ShieldCheck, Search, X, CheckCircle2, Clock, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSpecialists, getAppointments, saveAppointment, deleteAppointment, getMyProfile, getSpecialistAppointments } from "@/app/actions/content-actions";
-import { getSpecialistConversation } from "@/app/actions/chat-actions";
+import { getSpecialistConversation, getUnreadCountsPerContact } from "@/app/actions/chat-actions";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 export const TherapyView = () => {
   const router = useRouter();
@@ -24,6 +24,7 @@ export const TherapyView = () => {
   const [selectedTime, setSelectedTime] = useState("10:30 AM");
   const [isCancelling, setIsCancelling] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<number | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -51,8 +52,21 @@ export const TherapyView = () => {
     }
   };
 
+  const refreshUnread = async () => {
+    const counts = await getUnreadCountsPerContact();
+    setUnreadCounts(counts);
+  };
+
   useEffect(() => {
     loadData();
+    refreshUnread();
+
+    const channel = supabase
+      .channel("therapy-notifications")
+      .on("broadcast", { event: "new-notification" }, refreshUnread)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   if (isLoading || isRedirecting) {
@@ -243,9 +257,14 @@ export const TherapyView = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleChat(specialist.id)}
-                      className="p-3 bg-zinc-100 dark:bg-slate-950 border border-zinc-100 dark:border-white/5 text-[#B7B1F2] rounded-xl hover:bg-[#B7B1F2] hover:text-white transition-all shadow-sm"
+                      className="relative p-3 bg-zinc-100 dark:bg-slate-950 border border-zinc-100 dark:border-white/5 text-[#B7B1F2] rounded-xl hover:bg-[#B7B1F2] hover:text-white transition-all shadow-sm"
                     >
                       <MessageCircle className="w-5 h-5" />
+                      {unreadCounts[String(specialist.id)] > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 px-0.5 leading-none">
+                          {unreadCounts[String(specialist.id)] > 99 ? "99+" : unreadCounts[String(specialist.id)]}
+                        </span>
+                      )}
                     </button>
                     <button
                       onClick={() => handleBook(specialist)}

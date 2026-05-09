@@ -2,12 +2,29 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Message } from "../interfaces/message.interface";
 import { getChatMessages, saveChatMessage, markMessagesAsRead } from "@/app/actions/chat-actions";
+import { playIncomingSound } from "@/lib/sound";
 
 export function useRealtimeChat(conversationId: number | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const notifyChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const isSendingRef = useRef(false);
+
+  // Dedicated channel for pinging the nav badge
+  useEffect(() => {
+    const notifyChannel = supabase
+      .channel("notifications:global", {
+        config: { broadcast: { self: false } },
+      })
+      .subscribe();
+    notifyChannelRef.current = notifyChannel;
+
+    return () => {
+      supabase.removeChannel(notifyChannel);
+      notifyChannelRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -40,13 +57,7 @@ export function useRealtimeChat(conversationId: number | null) {
         const message = payload?.message;
         if (!message || !active) return;
 
-        try {
-          const audio = new Audio(
-            "https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3"
-          );
-          audio.volume = 0.5;
-          audio.play().catch(() => {});
-        } catch {}
+        playIncomingSound();
 
         setMessages((prev) => {
           if (prev.some((m) => m.id === message.id)) return prev;
@@ -92,6 +103,13 @@ export function useRealtimeChat(conversationId: number | null) {
 
       try {
         await saveChatMessage({ conversationId, role, content });
+
+        // Ping nav badge on the recipient's device
+        notifyChannelRef.current?.send({
+          type: "broadcast",
+          event: "new-notification",
+          payload: { conversationId },
+        });
       } catch (error) {
         console.error("Error guardando en DB:", error);
       } finally {

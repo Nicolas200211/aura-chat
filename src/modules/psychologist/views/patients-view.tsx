@@ -11,7 +11,8 @@ import {
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getPsychologistPatients } from "@/app/actions/content-actions";
-import { getSpecialistConversation } from "@/app/actions/chat-actions";
+import { getSpecialistConversation, getUnreadCountsPerContact } from "@/app/actions/chat-actions";
+import { supabase } from "@/lib/supabase";
 
 export const PatientsView = () => {
   const router = useRouter();
@@ -21,6 +22,7 @@ export const PatientsView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const openInviteModal = () => {
     // Generar código aleatorio de 6 caracteres
@@ -34,6 +36,11 @@ export const PatientsView = () => {
     alert("Código copiado al portapapeles");
   };
 
+  const refreshUnread = async () => {
+    const counts = await getUnreadCountsPerContact();
+    setUnreadCounts(counts);
+  };
+
   useEffect(() => {
     const loadPatients = async () => {
       const data = await getPsychologistPatients();
@@ -41,6 +48,14 @@ export const PatientsView = () => {
       setIsLoading(false);
     };
     loadPatients();
+    refreshUnread();
+
+    const channel = supabase
+      .channel("patients-notifications")
+      .on("broadcast", { event: "new-notification" }, refreshUnread)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleChat = async (patientId: string, specialistId: number) => {
@@ -148,14 +163,19 @@ export const PatientsView = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleChat(patient.id, patient.specialistId);
                       }}
-                      className="w-10 h-10 rounded-xl bg-[#928EFF]/10 text-[#928EFF] flex items-center justify-center transition-all hover:bg-[#928EFF] hover:text-white active:scale-90"
+                      className="relative w-10 h-10 rounded-xl bg-[#928EFF]/10 text-[#928EFF] flex items-center justify-center transition-all hover:bg-[#928EFF] hover:text-white active:scale-90"
                     >
                       <MessageSquare className="w-5 h-5" />
+                      {unreadCounts[patient.id] > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 px-0.5 leading-none">
+                          {unreadCounts[patient.id] > 99 ? "99+" : unreadCounts[patient.id]}
+                        </span>
+                      )}
                     </button>
                     <div className="flex flex-col items-end gap-1">
                       <div className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest">

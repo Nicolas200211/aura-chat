@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { getUnreadMessagesCount } from "@/app/actions/chat-actions";
 import { supabase } from "@/lib/supabase";
+import { playBadgeSound } from "@/lib/sound";
 
 interface BottomNavProps {
   role?: string;
@@ -50,7 +51,8 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
     const channel = supabase
       .channel('notifications:global')
       .on('broadcast', { event: 'new-notification' }, () => {
-        checkUnread(); // Recargar el conteo al recibir aviso
+        checkUnread();
+        playBadgeSound();
       })
       .subscribe();
 
@@ -105,12 +107,14 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
                   isAura ? "w-7 h-7" : "w-6 h-6",
                 )} />
                 
-                {/* Punto de Notificación (Aviso) */}
+                {/* Badge de mensajes no leídos (estilo WhatsApp) */}
                 {hasNotification && !isActive && (
                   <span className={cn(
-                    "absolute w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-950",
-                    isAura ? "top-1 right-1" : "top-0 right-0"
-                  )} />
+                    "absolute flex items-center justify-center bg-rose-500 text-white rounded-full border-2 border-white dark:border-zinc-950 font-black leading-none",
+                    isAura ? "top-0 right-0 min-w-[18px] h-[18px] text-[9px] px-1" : "-top-1 -right-1 min-w-[16px] h-[16px] text-[8px] px-0.5"
+                  )}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
                 )}
 
                 {isActive && !isAura && (

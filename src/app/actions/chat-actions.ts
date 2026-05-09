@@ -347,9 +347,66 @@ export async function getUnreadMessagesCount() {
     
     return Number(result[0].count) || 0;
   } catch (error) {
-    // Si falla (ej. porque no existe la columna 'read' aún), 
+    // Si falla (ej. porque no existe la columna 'read' aún),
     // devolvemos 0 para no romper la app, pero logueamos el error
     console.error("Error getting unread count (Check if DB is synced):", error);
     return 0;
+  }
+}
+
+// Returns { [patientUserId]: count } for psychologist
+// Returns { [specialistId]: count } for regular user
+export async function getUnreadCountsPerContact(): Promise<Record<string, number>> {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) return {};
+
+    if (user.role === "psicologo") {
+      const spec = await db
+        .select({ id: specialists.id })
+        .from(specialists)
+        .where(eq(specialists.userId, user.id))
+        .limit(1);
+      if (!spec.length) return {};
+
+      const rows = await db
+        .select({ patientId: conversations.userId, unread: count(messages.id) })
+        .from(conversations)
+        .innerJoin(
+          messages,
+          and(
+            eq(messages.conversationId, conversations.id),
+            eq(messages.read, false),
+            eq(messages.role, "user")
+          )
+        )
+        .where(eq(conversations.specialistId, spec[0].id))
+        .groupBy(conversations.userId);
+
+      return Object.fromEntries(rows.map((r) => [r.patientId, Number(r.unread)]));
+    } else {
+      const rows = await db
+        .select({ specialistId: conversations.specialistId, unread: count(messages.id) })
+        .from(conversations)
+        .innerJoin(
+          messages,
+          and(
+            eq(messages.conversationId, conversations.id),
+            eq(messages.read, false),
+            eq(messages.role, "assistant")
+          )
+        )
+        .where(eq(conversations.userId, user.id))
+        .groupBy(conversations.specialistId);
+
+      return Object.fromEntries(
+        rows
+          .filter((r) => r.specialistId !== null)
+          .map((r) => [String(r.specialistId), Number(r.unread)])
+      );
+    }
+  } catch (error) {
+    console.error("Error getting unread counts per contact:", error);
+    return {};
   }
 }
