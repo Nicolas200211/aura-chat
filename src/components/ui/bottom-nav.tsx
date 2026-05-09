@@ -6,7 +6,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { getChatMessages, saveChatMessage, markMessagesAsRead, getConversationDetails, getUnreadMessagesCount } from "@/app/actions/chat-actions";
+import { getUnreadMessagesCount } from "@/app/actions/chat-actions";
 import { supabase } from "@/lib/supabase";
 
 interface BottomNavProps {
@@ -66,7 +66,7 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
       : userNavItems;
 
   return (
-    <nav className="absolute bottom-0 left-0 right-0 h-[75px] z-50 flex justify-center pb-safe">
+    <nav className="relative w-full shrink-0 h-[75px] z-50 flex justify-center pb-safe">
       {/* Fondo SVG Cóncavo */}
       <div className="absolute inset-0 w-full h-full pointer-events-none">
         <svg 

@@ -20,8 +20,9 @@ interface RealtimeChatViewProps {
 export const RealtimeChatView = ({ conversationId, title, subtitle, avatar, userRole }: RealtimeChatViewProps) => {
   const router = useRouter();
   const [inputValue, setInputValue] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { messages, isLoading, sendMessage } = useRealtimeChat(conversationId, userRole);
+  const { messages, isLoading, sendMessage } = useRealtimeChat(conversationId);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -31,17 +32,20 @@ export const RealtimeChatView = ({ conversationId, title, subtitle, avatar, user
     markMessagesAsRead(conversationId);
   }, [messages, conversationId]);
 
-  const handleSend = (e?: React.FormEvent) => {
+  const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputValue.trim()) return;
-    sendMessage(inputValue, userRole);
+    if (!inputValue.trim() || isSending) return;
+    setIsSending(true);
+    const text = inputValue;
     setInputValue("");
+    await sendMessage(text, userRole);
+    setIsSending(false);
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F8F9FE] dark:bg-slate-950 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#F8F9FE] dark:bg-slate-950 overflow-hidden">
       {/* Header Minimalista y Elegante */}
-      <header className="bg-white dark:bg-zinc-900 px-6 py-4 flex items-center gap-4 border-b border-zinc-100 dark:border-white/5 shadow-sm">
+      <header className="shrink-0 bg-white dark:bg-zinc-900 px-6 py-4 flex items-center gap-4 border-b border-zinc-100 dark:border-white/5 shadow-sm">
         <button 
           onClick={() => router.back()}
           className="p-2 rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -87,7 +91,7 @@ export const RealtimeChatView = ({ conversationId, title, subtitle, avatar, user
       </main>
 
       {/* Input de Chat */}
-      <footer className="p-6 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-white/5">
+      <footer className="shrink-0 p-6 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-white/5">
         <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-3">
           <input
             value={inputValue}
@@ -97,7 +101,7 @@ export const RealtimeChatView = ({ conversationId, title, subtitle, avatar, user
           />
           <button
             type="submit"
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || isSending}
             className="w-14 h-14 bg-[#B7B1F2] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-[#B7B1F2]/30 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
           >
             <Send className="w-6 h-6" />
