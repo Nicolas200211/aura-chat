@@ -144,7 +144,7 @@ export const PsychologistDashboardView = () => {
 
     // Suscribirse a notificaciones en tiempo real
     const channel = supabase
-      .channel('notifications:psychologist')
+      .channel('notifications:global')
       .on('broadcast', { event: 'new-notification' }, async () => {
         const count = await getUnreadMessagesCount();
         setUnreadCount(count);
