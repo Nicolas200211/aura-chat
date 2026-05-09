@@ -1,35 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Message } from "../interfaces/message.interface";
-import { getChatMessages, saveChatMessage, markMessagesAsRead } from "@/app/actions/chat-actions";
+import { getChatMessages, saveChatMessage, markMessagesAsRead, broadcastNewMessageNotification } from "@/app/actions/chat-actions";
 import { playIncomingSound } from "@/lib/sound";
 
 export function useRealtimeChat(conversationId: number | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const notifyChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const isSendingRef = useRef(false);
-
-  // Dedicated channel for pinging the nav badge
-  useEffect(() => {
-    const notifyChannel = supabase
-      .channel("notifications:global", {
-        config: { broadcast: { self: false } },
-      })
-      .subscribe();
-    notifyChannelRef.current = notifyChannel;
-
-    return () => {
-      supabase.removeChannel(notifyChannel);
-      notifyChannelRef.current = null;
-    };
-  }, []);
+  // IDs reales de mensajes que nosotros enviamos — para no duplicarlos cuando llega el evento de DB
+  const ownPendingIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!conversationId) return;
-
-    // Guard: prevents stale async callbacks from updating state after cleanup
     let active = true;
 
     setIsLoading(true);
@@ -46,26 +30,53 @@ export function useRealtimeChat(conversationId: number | null) {
       setIsLoading(false);
     });
 
-    // Use a unique channel name to avoid Supabase reusing a partially-closed channel
-    const channelName = `chat-${conversationId}-${Date.now()}`;
-
+    // Nombre único por mount para evitar que el doble-mount de StrictMode desconecte el WebSocket
     const channel = supabase
-      .channel(channelName, {
-        config: { broadcast: { self: false } },
-      })
-      .on("broadcast", { event: "new-message" }, ({ payload }: any) => {
-        const message = payload?.message;
-        if (!message || !active) return;
+      .channel(`chat-${conversationId}-${Date.now()}`)
+      .on(
+        // @ts-ignore
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "mensajes", // nombre real en la base de datos
+        },
+        (payload: any) => {
+          if (!active) return;
+          const row = payload.new;
 
-        playIncomingSound();
+          // Filtrar por conversación en el cliente (columnas con espacios no admiten filter server-side)
+          const rowConvId = row["ID de conversación"];
+          if (Number(rowConvId) !== conversationId) return;
 
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === message.id)) return prev;
-          return [...prev, { ...message, timestamp: new Date(message.timestamp) }];
-        });
+          const msgId   = String(row["identificación"]);
+          const msgText = String(row["texto"] ?? "");
+          const msgRole = (row["role"] ?? "user") as "user" | "assistant";
+          const msgTs   = new Date(row["marca de tiempo"] ?? Date.now());
 
-        markMessagesAsRead(conversationId);
-      })
+          // Si es un mensaje que nosotros acabamos de enviar, solo reemplaza el ID temporal
+          if (ownPendingIds.current.has(msgId)) {
+            ownPendingIds.current.delete(msgId);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id.startsWith("msg-") && m.role === msgRole && m.content === msgText
+                  ? { ...m, id: msgId }
+                  : m
+              )
+            );
+            return;
+          }
+
+          // Mensaje nuevo del otro lado — agregarlo y reproducir sonido
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msgId)) return prev;
+            return [...prev, { id: msgId, role: msgRole, content: msgText, timestamp: msgTs }];
+          });
+
+          playIncomingSound();
+          markMessagesAsRead(conversationId);
+        }
+      )
       .subscribe();
 
     channelRef.current = channel;
@@ -80,38 +91,25 @@ export function useRealtimeChat(conversationId: number | null) {
   const sendMessage = useCallback(
     async (content: string, role: "user" | "assistant" = "user") => {
       if (!content.trim() || !conversationId || isSendingRef.current) return;
-
       isSendingRef.current = true;
 
-      const messageId = `msg-${Date.now()}`;
-      const newMsg: Message = {
-        id: messageId,
-        role,
-        content,
-        timestamp: new Date(),
-      };
+      const tempId = `msg-${Date.now()}`;
+      const newMsg: Message = { id: tempId, role, content, timestamp: new Date() };
 
-      // Optimistic update
+      // Update optimista: el emisor ve el mensaje de inmediato sin esperar la DB
       setMessages((prev) => [...prev, newMsg]);
 
-      // Broadcast via the already-subscribed channel (WebSocket, no REST fallback)
-      channelRef.current?.send({
-        type: "broadcast",
-        event: "new-message",
-        payload: { message: newMsg },
-      });
-
       try {
-        await saveChatMessage({ conversationId, role, content });
+        const saved = await saveChatMessage({ conversationId, role, content });
+        // Registrar el ID real para que postgres_changes no lo duplique
+        ownPendingIds.current.add(String(saved.id));
 
-        // Ping nav badge on the recipient's device
-        notifyChannelRef.current?.send({
-          type: "broadcast",
-          event: "new-notification",
-          payload: { conversationId },
-        });
+        // Notificar al nav del otro dispositivo (badge + sonido)
+        await broadcastNewMessageNotification(conversationId);
       } catch (error) {
         console.error("Error guardando en DB:", error);
+        // Revertir el update optimista si falló el guardado
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
       } finally {
         isSendingRef.current = false;
       }

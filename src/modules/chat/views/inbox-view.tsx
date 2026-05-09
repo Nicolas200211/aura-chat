@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, ArrowLeft, User, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { getUserConversations, getSpecialistConversations } from "@/app/actions/chat-actions";
+import { getUserConversations, getSpecialistConversations, getUnreadCountsPerConversation } from "@/app/actions/chat-actions";
 import { getMyProfile } from "@/app/actions/content-actions";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 export const InboxView = () => {
@@ -13,6 +14,12 @@ export const InboxView = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [role, setRole] = useState<string>("usuario");
+  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
+
+  const refreshUnread = async () => {
+    const counts = await getUnreadCountsPerConversation();
+    setUnreadCounts(counts);
+  };
 
   useEffect(() => {
     const loadConversations = async () => {
@@ -22,10 +29,10 @@ export const InboxView = () => {
         const userRole = profile?.role || "usuario";
         setRole(userRole);
 
-        const data = userRole === "psicologo" 
-          ? await getSpecialistConversations() 
+        const data = userRole === "psicologo"
+          ? await getSpecialistConversations()
           : await getUserConversations();
-        
+
         setConversations(data);
       } catch (error) {
         console.error("Error loading inbox:", error);
@@ -33,7 +40,16 @@ export const InboxView = () => {
         setIsLoading(false);
       }
     };
+
     loadConversations();
+    refreshUnread();
+
+    const channel = supabase
+      .channel("inbox-notifications")
+      .on("broadcast", { event: "new-notification" }, refreshUnread)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   if (isLoading) {
@@ -47,7 +63,7 @@ export const InboxView = () => {
   return (
     <div className="flex flex-col min-h-screen bg-[#F8F9FE] dark:bg-slate-950 p-6">
       <header className="flex items-center gap-4 mb-8 pt-6">
-        <button 
+        <button
           onClick={() => router.back()}
           className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-white/5 flex items-center justify-center text-zinc-500 shadow-sm transition-transform active:scale-90"
         >
@@ -89,38 +105,63 @@ export const InboxView = () => {
 
         <AnimatePresence mode="popLayout">
           {conversations.length > 0 ? (
-            conversations.map((conv, i) => (
-              <motion.div
-                key={conv.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => router.push(`/chat/${role === 'psicologo' ? 'specialist' : 'member'}/${conv.id}`)}
-                className="bg-white dark:bg-zinc-900 p-4 rounded-3xl border border-zinc-100 dark:border-white/5 shadow-sm hover:shadow-md transition-all group cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-slate-950 border border-zinc-100 dark:border-white/10 flex items-center justify-center overflow-hidden">
-                    {(conv.specialistImage || conv.patientAvatar) ? (
-                      <img src={conv.specialistImage || conv.patientAvatar} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-6 h-6 text-zinc-300" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-zinc-800 dark:text-white leading-tight">
+            conversations.map((conv, i) => {
+              const unread = unreadCounts[conv.id] ?? 0;
+              return (
+                <motion.div
+                  key={conv.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => router.push(`/chat/${role === 'psicologo' ? 'specialist' : 'member'}/${conv.id}`)}
+                  className={cn(
+                    "bg-white dark:bg-zinc-900 p-4 rounded-3xl border shadow-sm hover:shadow-md transition-all group cursor-pointer",
+                    unread > 0
+                      ? "border-[#B7B1F2]/30 dark:border-[#B7B1F2]/20"
+                      : "border-zinc-100 dark:border-white/5"
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-slate-950 border border-zinc-100 dark:border-white/10 flex items-center justify-center overflow-hidden">
+                      {(conv.specialistImage || conv.patientAvatar) ? (
+                        <img src={conv.specialistImage || conv.patientAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-6 h-6 text-zinc-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className={cn(
+                        "leading-tight truncate",
+                        unread > 0
+                          ? "font-black text-zinc-800 dark:text-white"
+                          : "font-bold text-zinc-800 dark:text-white"
+                      )}>
                         {conv.specialistName || conv.patientName || "Conversación"}
-                    </h4>
-                    <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter mt-1">
+                      </h4>
+                      <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter mt-1">
                         {new Date(conv.createdAt).toLocaleDateString()} • {new Date(conv.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                      </p>
+                    </div>
+                    <div className="relative shrink-0">
+                      <div className={cn(
+                        "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+                        unread > 0
+                          ? "bg-[#B7B1F2]/10 text-[#B7B1F2]"
+                          : "bg-zinc-50 dark:bg-slate-950 text-zinc-300 group-hover:text-[#B7B1F2] group-hover:bg-[#B7B1F2]/10"
+                      )}>
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      {unread > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900 px-0.5 leading-none">
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-8 h-8 rounded-xl bg-zinc-50 dark:bg-slate-950 flex items-center justify-center text-zinc-300 group-hover:text-[#B7B1F2] group-hover:bg-[#B7B1F2]/10 transition-all">
-                    <MessageSquare className="w-4 h-4" />
-                  </div>
-                </div>
-              </motion.div>
-            ))
+                </motion.div>
+              );
+            })
           ) : (
             <div className="py-20 text-center">
                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4">

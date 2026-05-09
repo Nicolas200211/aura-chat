@@ -250,17 +250,20 @@ export async function markMessagesAsRead(conversationId: number) {
     const user = await getAuthenticatedUser();
     if (!user) return;
 
+    // Only mark the OTHER party's messages as read — never your own sent messages.
+    // Psychologist reads patient's 'user' messages; patient reads specialist's 'assistant' messages.
+    const incomingRole = user.role === 'psicologo' ? 'user' : 'assistant';
+
     await db.update(messages)
       .set({ read: true })
       .where(
         and(
           eq(messages.conversationId, conversationId),
-          eq(messages.read, false)
+          eq(messages.read, false),
+          eq(messages.role, incomingRole)
         )
       );
   } catch (error) {
-    // Si falla (ej. la columna 'read' no existe o DB saturada), ignoramos el error
-    // para que la experiencia de chat no se interrumpa.
     console.error("Silent error marking messages as read:", error);
   }
 }
@@ -351,6 +354,68 @@ export async function getUnreadMessagesCount() {
     // devolvemos 0 para no romper la app, pero logueamos el error
     console.error("Error getting unread count (Check if DB is synced):", error);
     return 0;
+  }
+}
+
+export async function broadcastNewMessageNotification(conversationId: number) {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) return;
+
+    await fetch(`${url}/realtime/v1/api/broadcast`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`,
+        'apikey': key,
+      },
+      body: JSON.stringify({
+        messages: [{
+          topic: 'realtime:notifications:global',
+          event: 'new-notification',
+          payload: { conversationId },
+        }],
+      }),
+    });
+  } catch (error) {
+    console.error('Error broadcasting notification:', error);
+  }
+}
+
+// Returns { [conversationId]: unreadCount } for the current user
+export async function getUnreadCountsPerConversation(): Promise<Record<number, number>> {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) return {};
+
+    let specialistId: number | null = null;
+    if (user.role === 'psicologo') {
+      const spec = await db.select({ id: specialists.id }).from(specialists).where(eq(specialists.userId, user.id)).limit(1);
+      if (spec.length > 0) specialistId = spec[0].id;
+    }
+
+    const targetRole = user.role === 'psicologo' ? 'user' : 'assistant';
+
+    const rows = await db
+      .select({ conversationId: messages.conversationId, unread: count(messages.id) })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(
+        and(
+          eq(messages.read, false),
+          eq(messages.role, targetRole),
+          specialistId
+            ? eq(conversations.specialistId, specialistId)
+            : eq(conversations.userId, user.id)
+        )
+      )
+      .groupBy(messages.conversationId);
+
+    return Object.fromEntries(rows.map(r => [r.conversationId, Number(r.unread)]));
+  } catch (error) {
+    console.error("Error getting unread counts per conversation:", error);
+    return {};
   }
 }
 
