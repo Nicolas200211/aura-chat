@@ -62,7 +62,7 @@ export const TherapyView = () => {
     refreshUnread();
 
     const channel = supabase
-      .channel("therapy-notifications")
+      .channel("notifications:global")
       .on("broadcast", { event: "new-notification" }, refreshUnread)
       .subscribe();
 

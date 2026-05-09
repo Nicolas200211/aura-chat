@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { getUnreadMessagesCount } from "@/app/actions/chat-actions";
 import { supabase } from "@/lib/supabase";
-import { playBadgeSound } from "@/lib/sound";
+import { playIncomingSound } from "@/lib/sound";
 
 interface BottomNavProps {
   role?: string;
@@ -52,7 +52,7 @@ export const BottomNav = ({ role = "usuario" }: BottomNavProps) => {
       .channel('notifications:global')
       .on('broadcast', { event: 'new-notification' }, () => {
         checkUnread();
-        playBadgeSound();
+        playIncomingSound();
       })
       .subscribe();
 

@@ -1,16 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Message } from "../interfaces/message.interface";
-import { getChatMessages, saveChatMessage, markMessagesAsRead, broadcastNewMessageNotification } from "@/app/actions/chat-actions";
+import { getChatMessages, saveChatMessage, markMessagesAsRead } from "@/app/actions/chat-actions";
 import { playIncomingSound } from "@/lib/sound";
 
 export function useRealtimeChat(conversationId: number | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const notifyChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const isSendingRef = useRef(false);
   // IDs reales de mensajes que nosotros enviamos — para no duplicarlos cuando llega el evento de DB
   const ownPendingIds = useRef<Set<string>>(new Set());
+
+  // Canal compartido para notificar al nav del OTRO dispositivo (badge + sonido)
+  useEffect(() => {
+    const ch = supabase
+      .channel("notifications:global", { config: { broadcast: { self: false } } })
+      .subscribe();
+    notifyChannelRef.current = ch;
+    return () => {
+      supabase.removeChannel(ch);
+      notifyChannelRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -104,8 +117,12 @@ export function useRealtimeChat(conversationId: number | null) {
         // Registrar el ID real para que postgres_changes no lo duplique
         ownPendingIds.current.add(String(saved.id));
 
-        // Notificar al nav del otro dispositivo (badge + sonido)
-        await broadcastNewMessageNotification(conversationId);
+        // Notificar al nav del otro dispositivo via WebSocket (badge + sonido)
+        notifyChannelRef.current?.send({
+          type: "broadcast",
+          event: "new-notification",
+          payload: { conversationId },
+        });
       } catch (error) {
         console.error("Error guardando en DB:", error);
         // Revertir el update optimista si falló el guardado

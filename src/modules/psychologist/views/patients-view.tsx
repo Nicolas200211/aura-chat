@@ -51,7 +51,7 @@ export const PatientsView = () => {
     refreshUnread();
 
     const channel = supabase
-      .channel("patients-notifications")
+      .channel("notifications:global")
       .on("broadcast", { event: "new-notification" }, refreshUnread)
       .subscribe();
 

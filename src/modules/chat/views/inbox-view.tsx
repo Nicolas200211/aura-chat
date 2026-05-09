@@ -45,7 +45,7 @@ export const InboxView = () => {
     refreshUnread();
 
     const channel = supabase
-      .channel("inbox-notifications")
+      .channel("notifications:global")
       .on("broadcast", { event: "new-notification" }, refreshUnread)
       .subscribe();
 
