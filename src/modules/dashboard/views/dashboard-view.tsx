@@ -76,7 +76,7 @@ export const DashboardView = () => {
 
   if (isLoading || !fullStats) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex flex-1 items-center justify-center bg-slate-950">
         <Loader2 className="w-10 h-10 text-[#B7B1F2] animate-spin" />
       </div>
     );

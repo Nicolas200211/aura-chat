@@ -171,7 +171,7 @@ export const PsychologistDashboardView = () => {
 
   if (isLoading || isRedirecting) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex flex-1 items-center justify-center bg-slate-950">
         <Loader2 className="w-10 h-10 text-[#928EFF] animate-spin" />
       </div>
     );
@@ -179,7 +179,7 @@ export const PsychologistDashboardView = () => {
 
   if (specialistInfo?.verificationStatus === 'pending') {
     return (
-      <div className="flex flex-col min-h-screen p-6 font-sans items-center justify-center bg-[#F8F9FE] dark:bg-slate-950">
+      <div className="flex flex-col flex-1 p-6 font-sans items-center justify-center bg-[#F8F9FE] dark:bg-slate-950">
         <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 shadow-2xl border border-zinc-100 dark:border-white/5 text-center relative overflow-hidden max-w-sm w-full">
           <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-500">
             <Lock className="w-10 h-10" />

@@ -12,9 +12,7 @@ export default async function AuthenticatedLayout({
 
   return (
     <MobileShell bottomNav={<NavWrapper role={role} />}>
-      <div className="flex-1 overflow-y-auto flex flex-col">
-        {children}
-      </div>
+      {children}
     </MobileShell>
   );
 }

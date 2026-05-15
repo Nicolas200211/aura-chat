@@ -31,7 +31,7 @@ export const ChatView = () => {
   }, [messages, isLoading, activeTab]);
 
   return (
-    <div className="flex flex-col h-full bg-[#F8F9FE] dark:bg-slate-950 selection:bg-[#B7B1F2]/30 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#F8F9FE] dark:bg-slate-950 selection:bg-[#B7B1F2]/30 overflow-hidden">
       <ChatHeader onClear={clearChat} />
 
       {/* Selector de Pestañas y Nuevo Chat */}

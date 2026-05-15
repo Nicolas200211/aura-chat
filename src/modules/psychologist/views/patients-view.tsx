@@ -76,14 +76,14 @@ export const PatientsView = () => {
 
   if (isLoading || isRedirecting) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex flex-1 items-center justify-center bg-slate-950">
         <Loader2 className="w-10 h-10 text-[#928EFF] animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col p-5 font-sans">
+    <div className="flex-1 flex flex-col p-5 font-sans overflow-y-auto no-scrollbar">
       <header className="flex items-center gap-4 mb-8 pt-6">
         <button 
           onClick={() => router.back()}

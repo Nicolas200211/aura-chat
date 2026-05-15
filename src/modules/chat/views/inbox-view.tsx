@@ -54,14 +54,14 @@ export const InboxView = () => {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F8F9FE] dark:bg-slate-950">
+      <div className="flex flex-1 items-center justify-center bg-[#F8F9FE] dark:bg-slate-950">
         <Loader2 className="w-10 h-10 text-[#B7B1F2] animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FE] dark:bg-slate-950 p-6">
+    <div className="flex-1 flex flex-col bg-[#F8F9FE] dark:bg-slate-950 p-6 overflow-y-auto no-scrollbar">
       <header className="flex items-center gap-4 mb-8 pt-6">
         <button
           onClick={() => router.back()}
